@@ -1,3 +1,4 @@
+import * as path from 'path';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -11,9 +12,10 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
-    // Configuration globale (.env)
+    // Configuration globale (.env) — chemin absolu pour fonctionner quel que soit le cwd
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: path.resolve(__dirname, '..', '.env'),
     }),
 
     // Rate limiting (60 requêtes par minute)

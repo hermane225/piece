@@ -7,14 +7,21 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Sécurité
+  // Sécurité HTTP
   app.use(helmet());
 
-  // CORS pour app mobile
+  // CORS
+  const isProd = process.env.NODE_ENV === 'production';
   app.enableCors({
-    origin: '*',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: isProd
+      ? [process.env.FRONTEND_URL || 'https://piece-rare.ci'] // prod
+      : (
+          _origin: string | undefined,
+          cb: (err: Error | null, allow?: boolean) => void,
+        ) => cb(null, true), // dev : tout autoriser
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type,Authorization',
+    credentials: true,
   });
 
   // Validation globale
@@ -23,22 +30,18 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
+      transformOptions: { enableImplicitConversion: true },
     }),
   );
 
   // Préfixe global API
-  app.setGlobalPrefix('api', {
-    exclude: [''],
-  });
+  app.setGlobalPrefix('api');
 
   // Swagger
   const config = new DocumentBuilder()
     .setTitle('piece-rare.ci API')
     .setDescription(
-      'API REST pour la plateforme d\'annonces de pièces détachées (Téléphones & PC)',
+      "API REST pour la plateforme d'annonces de pièces détachées (Téléphones & PC)",
     )
     .setVersion('1.0')
     .addBearerAuth()
@@ -46,16 +49,18 @@ async function bootstrap() {
     .addTag('Users', 'Gestion du profil utilisateur')
     .addTag('Posts', 'CRUD annonces + filtres + pagination')
     .addTag('Admin', 'Administration (validation, modération)')
-    .addTag('Upload', 'Upload d\'images via Cloudinary')
+    .addTag('Upload', "Upload d'images via Cloudinary")
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT ?? 3000;
+  // Port : depuis .env ou fallback 4000
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
   await app.listen(port);
 
   console.log(`🚀 piece-rare.ci API lancée sur http://localhost:${port}`);
   console.log(`📘 Swagger docs : http://localhost:${port}/api/docs`);
 }
-bootstrap();
+
+void bootstrap();
