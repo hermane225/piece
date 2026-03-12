@@ -9,6 +9,7 @@ import { UsersModule } from './users/users.module';
 import { PostsModule } from './posts/posts.module';
 import { AdminModule } from './admin/admin.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { BannersModule } from './banners/banners.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     PostsModule,
     AdminModule,
     CloudinaryModule,
+    BannersModule,
   ],
   providers: [
     {
