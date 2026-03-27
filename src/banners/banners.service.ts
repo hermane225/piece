@@ -7,9 +7,13 @@ import { UpdateBannerDto } from './dto/update-banner.dto';
 export class BannersService {
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateBannerDto) {
+  async create(dto: CreateBannerDto & { image: string }) {
     const banner = await this.prisma.banner.create({
-      data: dto,
+      data: {
+        title: dto.title,
+        image: dto.image,
+        comment: dto.comment,
+      },
     });
     return { message: 'Bannière créée avec succès.', banner };
   }
