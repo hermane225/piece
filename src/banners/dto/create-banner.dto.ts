@@ -1,14 +1,17 @@
-import { IsString, IsOptional } from 'class-validator';
+﻿import { IsString, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateBannerDto {
-  @ApiProperty({ description: 'Titre de la bannière' })
+  @ApiProperty({ description: 'Titre de la banniere' })
   @IsString()
   title: string;
 
-  @ApiProperty({ description: 'URL de l\'image de la bannière' })
+  @ApiPropertyOptional({
+    description: "URL de l'image de la banniere (ou fichier si multipart)",
+  })
+  @IsOptional()
   @IsString()
-  image: string;
+  image?: string;
 
   @ApiPropertyOptional({ description: 'Commentaire optionnel' })
   @IsOptional()
