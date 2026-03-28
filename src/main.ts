@@ -22,26 +22,7 @@ async function bootstrap() {
     .filter(Boolean);
 
   app.enableCors({
-    origin: isProd
-      ? (
-          origin: string | undefined,
-          cb: (err: Error | null, allow?: boolean) => void,
-        ) => {
-          // Allow calls without Origin (curl, server-to-server)
-          if (!origin) {
-            return cb(null, true);
-          }
-
-          if (allowedOrigins.includes(origin)) {
-            return cb(null, true);
-          }
-
-          return cb(new Error(`CORS blocked for origin: ${origin}`));
-        }
-      : (
-          _origin: string | undefined,
-          cb: (err: Error | null, allow?: boolean) => void,
-        ) => cb(null, true), // dev : allow all
+    origin: '*', // Autorise toutes les origines (attention en production)
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type,Authorization',
     credentials: true,
