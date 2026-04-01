@@ -64,6 +64,13 @@ export class PostsController {
     return this.postsService.findAll(filters);
   }
 
+  @Get('filters')
+  @ApiOperation({ summary: 'Lister les options de filtre disponibles' })
+  @ApiResponse({ status: 200, description: 'Catégories et conditions disponibles' })
+  getFilterOptions() {
+    return this.postsService.getFilterOptions();
+  }
+
   @Get('my')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

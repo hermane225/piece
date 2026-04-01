@@ -1,8 +1,9 @@
 import { IsOptional, IsString, IsEnum, IsNumber } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { ConditionEnum, CategoryEnum } from './create-post.dto';
+import { normalizeEnumInput } from '../../common/utils/normalize-enum-input';
 
 export class FilterPostsDto extends PaginationDto {
   @ApiPropertyOptional({ example: 'Apple', description: 'Filtrer par marque' })
@@ -17,11 +18,13 @@ export class FilterPostsDto extends PaginationDto {
 
   @ApiPropertyOptional({ enum: CategoryEnum, description: 'Filtrer par catégorie' })
   @IsOptional()
+  @Transform(({ value }) => normalizeEnumInput(value))
   @IsEnum(CategoryEnum)
   category?: CategoryEnum;
 
   @ApiPropertyOptional({ enum: ConditionEnum, description: 'Filtrer par condition' })
   @IsOptional()
+  @Transform(({ value }) => normalizeEnumInput(value))
   @IsEnum(ConditionEnum)
   condition?: ConditionEnum;
 

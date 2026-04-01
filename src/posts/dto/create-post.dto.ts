@@ -6,8 +6,9 @@ import {
   IsOptional,
   IsArray,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { normalizeEnumInput } from '../../common/utils/normalize-enum-input';
 
 export enum ConditionEnum {
   NEUF = 'NEUF',
@@ -69,7 +70,8 @@ export class CreatePostDto {
 
   @ApiProperty({ enum: ConditionEnum, example: 'NEUF', description: 'État de la pièce' })
   @IsNotEmpty({ message: 'La condition est requise' })
-  @IsEnum(ConditionEnum, { message: 'Condition invalide (NEUF, QUASI_NEUF, RECONDITIONNE)' })
+  @Transform(({ value }) => normalizeEnumInput(value))
+  @IsEnum(ConditionEnum, { message: 'Condition invalide (NEUF, QUASI_NEUF, RECONDITIONNE, SECONDE_MAIN)' })
   condition: ConditionEnum;
 
   @ApiProperty({ example: 'Apple', description: 'Marque' })
@@ -84,7 +86,8 @@ export class CreatePostDto {
 
   @ApiProperty({ enum: CategoryEnum, example: 'PHONE', description: 'Catégorie' })
   @IsNotEmpty({ message: 'La catégorie est requise' })
-  @IsEnum(CategoryEnum, { message: 'Catégorie invalide (PHONE, PC)' })
+  @Transform(({ value }) => normalizeEnumInput(value))
+  @IsEnum(CategoryEnum, { message: 'Catégorie invalide' })
   category: CategoryEnum;
 
   @ApiProperty({ example: 'Abidjan', description: 'Ville' })

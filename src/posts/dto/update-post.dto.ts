@@ -5,9 +5,10 @@ import {
   IsEnum,
   IsArray,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ConditionEnum, CategoryEnum } from './create-post.dto';
+import { normalizeEnumInput } from '../../common/utils/normalize-enum-input';
 
 export class UpdatePostDto {
   @ApiPropertyOptional({ example: 'Écran iPhone 14 Pro Max', description: 'Titre' })
@@ -28,6 +29,7 @@ export class UpdatePostDto {
 
   @ApiPropertyOptional({ enum: ConditionEnum, description: 'État' })
   @IsOptional()
+  @Transform(({ value }) => normalizeEnumInput(value))
   @IsEnum(ConditionEnum)
   condition?: ConditionEnum;
 
@@ -43,6 +45,7 @@ export class UpdatePostDto {
 
   @ApiPropertyOptional({ enum: CategoryEnum, description: 'Catégorie' })
   @IsOptional()
+  @Transform(({ value }) => normalizeEnumInput(value))
   @IsEnum(CategoryEnum)
   category?: CategoryEnum;
 

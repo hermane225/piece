@@ -354,6 +354,23 @@ async function main() {
       isApproved: true,
       userId: admin.id,
     },
+    {
+      title: 'Toyota Corolla 2018 Essence',
+      description: 'Toyota Corolla 1.8L essence 2018. 120 000 km au compteur. Second main en excellent état. Climatisation bi-zone, jantes alu 16", vitres électriques, régulateur de vitesse. Entretien à jour, contrôle technique OK. Parfait pour usage quotidien.',
+      price: 8500000,
+      condition: 'SECONDE_MAIN' as const,
+      brand: 'Toyota',
+      model: 'Corolla 2018',
+      category: 'AUTO_MOTO' as const,
+      city: 'Abidjan',
+      images: [
+        'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800',
+        'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800',
+        'https://images.unsplash.com/photo-1476728486197-1e98edac812e?w=800'
+      ],
+      isApproved: true,
+      userId: admin.id,
+    },
   ];
 
   for (const piece of pieces) {

@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePostDto } from './dto/create-post.dto';
+import { CreatePostDto, CategoryEnum, ConditionEnum } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { FilterPostsDto } from './dto/filter-posts.dto';
 
@@ -67,6 +67,13 @@ export class PostsService {
     return {
       message: 'Annonce créée avec succès.',
       post,
+    };
+  }
+
+  getFilterOptions() {
+    return {
+      categories: Object.values(CategoryEnum),
+      conditions: Object.values(ConditionEnum),
     };
   }
 
