@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { createHash, randomBytes } from 'crypto';
+import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -25,14 +25,8 @@ export class AuthService {
     private mailService: MailService,
   ) {}
 
-  private generateTemporaryPassword(length: number = 10): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
-    const bytes = randomBytes(length);
-    let password = '';
-    for (let i = 0; i < length; i += 1) {
-      password += chars[bytes[i] % chars.length];
-    }
-    return password;
+  private generateResetCode(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
   async register(dto: RegisterDto) {
@@ -127,32 +121,34 @@ export class AuthService {
       return genericResponse;
     }
 
-    const temporaryPassword = this.generateTemporaryPassword();
-    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
-    const oldPassword = user.password;
+    const resetCode = this.generateResetCode();
+    const hashedToken = createHash('sha256').update(resetCode).digest('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
-        password: hashedPassword,
-        resetPasswordToken: null,
-        resetPasswordExpiresAt: null,
+        resetPasswordToken: hashedToken,
+        resetPasswordExpiresAt: expiresAt,
       },
     });
 
     try {
-      await this.mailService.sendNewPasswordEmail(
+      await this.mailService.sendResetCodeEmail(
         user.email,
         user.name,
-        temporaryPassword,
+        resetCode,
       );
     } catch (error) {
       await this.prisma.user.update({
         where: { id: user.id },
-        data: { password: oldPassword },
+        data: {
+          resetPasswordToken: null,
+          resetPasswordExpiresAt: null,
+        },
       });
       throw new InternalServerErrorException(
-        "Échec d'envoi email, aucun changement de mot de passe n'a été appliqué",
+        "Échec d'envoi email, aucun code de réinitialisation n'a été appliqué",
       );
     }
 

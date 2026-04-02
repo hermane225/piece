@@ -3,10 +3,10 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class ResetPasswordDto {
   @ApiProperty({
-    example: '9f3cb5699724f0a5f0d062219fd0f673f9a67ae6cd2f2c6d6eeb5a07a9843c65',
-    description: 'Token reçu pour la réinitialisation',
+    example: '123456',
+    description: 'Code de réinitialisation reçu par email',
   })
-  @IsNotEmpty({ message: 'Le token est requis' })
+  @IsNotEmpty({ message: 'Le code est requis' })
   @IsString()
   token: string;
 

@@ -8,7 +8,7 @@ export class MailService {
 
   constructor(private readonly configService: ConfigService) {}
 
-  async sendNewPasswordEmail(email: string, name: string, temporaryPassword: string) {
+  async sendResetCodeEmail(email: string, name: string, resetCode: string) {
     const host = this.configService.get<string>('SMTP_HOST');
     const port = Number(this.configService.get<string>('SMTP_PORT', '587'));
     const user = this.configService.get<string>('SMTP_USER');
@@ -30,7 +30,7 @@ export class MailService {
       from,
       to: email,
       subject: 'Réinitialisation de votre mot de passe',
-      text: `Bonjour ${name},\n\nVotre nouveau mot de passe temporaire est: ${temporaryPassword}\n\nConnectez-vous puis changez-le rapidement dans votre profil.\n`,
+      text: `Bonjour ${name},\n\nVotre code de réinitialisation est: ${resetCode}\n\nCe code expire dans 1 heure.\n`,
     }).catch((error) => {
       this.logger.error(`Erreur envoi mail reset pour ${email}`, error as any);
       throw new InternalServerErrorException("Impossible d'envoyer l'email de réinitialisation");

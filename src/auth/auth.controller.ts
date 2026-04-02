@@ -19,7 +19,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  @ApiOperation({ summary: 'Inscription d\'un nouvel utilisateur' })
+  @ApiOperation({ summary: "Inscription d'un nouvel utilisateur" })
   @ApiResponse({ status: 201, description: 'Utilisateur créé avec succès' })
   @ApiResponse({ status: 409, description: 'Email ou téléphone déjà existant' })
   register(@Body() dto: RegisterDto) {
@@ -27,21 +27,21 @@ export class AuthController {
   }
 
   @Post('login')
-  @ApiOperation({ summary: 'Connexion d\'un utilisateur' })
+  @ApiOperation({ summary: "Connexion d'un utilisateur" })
   @ApiResponse({ status: 200, description: 'Connexion réussie' })
   @ApiResponse({ status: 401, description: 'Identifiants incorrects' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
 
-  @Post('forgot-password')
+  @Post(['forgot-password', 'forgotPassword'])
   @ApiOperation({ summary: 'Demander une réinitialisation du mot de passe' })
   @ApiResponse({ status: 200, description: 'Demande traitée' })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
   }
 
-  @Post('reset-password')
+  @Post(['reset-password', 'resetPassword'])
   @ApiOperation({ summary: 'Réinitialiser le mot de passe avec un token' })
   @ApiResponse({ status: 200, description: 'Mot de passe mis à jour' })
   @ApiResponse({ status: 400, description: 'Token invalide ou expiré' })
@@ -52,7 +52,7 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Récupérer le profil de l\'utilisateur connecté' })
+  @ApiOperation({ summary: "Récupérer le profil de l'utilisateur connecté" })
   @ApiResponse({ status: 200, description: 'Profil utilisateur' })
   @ApiResponse({ status: 401, description: 'Non autorisé' })
   getMe(@CurrentUser('id') userId: string) {
