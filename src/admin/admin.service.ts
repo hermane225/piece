@@ -51,22 +51,33 @@ export class AdminService {
       throw new NotFoundException('Annonce non trouvée');
     }
 
-    const updated = await this.prisma.post.update({
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: post.userId },
+        data: { autoApprovePosts: true },
+      }),
+      this.prisma.post.updateMany({
+        where: { userId: post.userId, isApproved: false },
+        data: { isApproved: true },
+      }),
+    ]);
+
+    const updated = await this.prisma.post.findUnique({
       where: { id },
-      data: { isApproved: true },
       include: {
         user: {
           select: {
             id: true,
             name: true,
             phone: true,
+            autoApprovePosts: true,
           },
         },
       },
     });
 
     return {
-      message: 'Annonce approuvée avec succès',
+      message: 'Annonce approuvée avec succès. Tous les posts de cet utilisateur sont désormais approuvés automatiquement.',
       post: updated,
     };
   }

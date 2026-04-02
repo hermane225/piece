@@ -25,7 +25,7 @@ export class UsersService {
       throw new NotFoundException('Utilisateur non trouvé');
     }
 
-    const { password, ...result } = user;
+    const { password, resetPasswordToken, resetPasswordExpiresAt, ...result } = user;
     return result;
   }
 
@@ -61,7 +61,7 @@ export class UsersService {
       data,
     });
 
-    const { password, ...result } = user;
+    const { password, resetPasswordToken, resetPasswordExpiresAt, ...result } = user;
     return {
       message: 'Profil mis à jour avec succès',
       user: result,

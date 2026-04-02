@@ -23,6 +23,7 @@ import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { FilterPostsDto } from './dto/filter-posts.dto';
+import { PayBoostDto } from './dto/pay-boost.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -124,5 +125,20 @@ export class PostsController {
   ) {
     // Simulation paiement validé : boost 7 jours
     return this.postsService.boostPost(id, userId, 7);
+  }
+
+  @Patch(':id/pay-boost')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Payer et booster une annonce' })
+  @ApiParam({ name: 'id', description: "ID de l'annonce" })
+  @ApiResponse({ status: 200, description: 'Paiement enregistré et annonce boostée' })
+  @ApiResponse({ status: 403, description: 'Accès refusé' })
+  payAndBoost(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: PayBoostDto,
+  ) {
+    return this.postsService.payAndBoost(id, userId, dto);
   }
 }

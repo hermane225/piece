@@ -2,19 +2,38 @@ import {
   Injectable,
   ConflictException,
   UnauthorizedException,
+  BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { MailService } from './mail.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private configService: ConfigService,
+    private mailService: MailService,
   ) {}
+
+  private generateTemporaryPassword(length: number = 10): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    const bytes = randomBytes(length);
+    let password = '';
+    for (let i = 0; i < length; i += 1) {
+      password += chars[bytes[i] % chars.length];
+    }
+    return password;
+  }
 
   async register(dto: RegisterDto) {
     // Vérifier si l'email existe déjà
@@ -44,7 +63,7 @@ export class AuthService {
       },
     });
 
-    const { password, ...result } = user;
+    const { password, resetPasswordToken, resetPasswordExpiresAt, ...result } = user;
     const token = this.generateToken(user.id, user.email);
 
     return {
@@ -70,7 +89,7 @@ export class AuthService {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
 
-    const { password, ...result } = user;
+    const { password, resetPasswordToken, resetPasswordExpiresAt, ...result } = user;
     const token = this.generateToken(user.id, user.email);
 
     return {
@@ -89,8 +108,85 @@ export class AuthService {
       throw new UnauthorizedException('Utilisateur non trouvé');
     }
 
-    const { password, ...result } = user;
+    const { password, resetPasswordToken, resetPasswordExpiresAt, ...result } = user;
     return result;
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    // Réponse générique pour éviter l'énumération d'emails.
+    const genericResponse = {
+      message:
+        'Si cet email existe, un nouveau mot de passe a été envoyé.',
+    };
+
+    if (!user) {
+      return genericResponse;
+    }
+
+    const temporaryPassword = this.generateTemporaryPassword();
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+    const oldPassword = user.password;
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpiresAt: null,
+      },
+    });
+
+    try {
+      await this.mailService.sendNewPasswordEmail(
+        user.email,
+        user.name,
+        temporaryPassword,
+      );
+    } catch (error) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { password: oldPassword },
+      });
+      throw new InternalServerErrorException(
+        "Échec d'envoi email, aucun changement de mot de passe n'a été appliqué",
+      );
+    }
+
+    return genericResponse;
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const hashedToken = createHash('sha256').update(dto.token).digest('hex');
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        resetPasswordToken: hashedToken,
+        resetPasswordExpiresAt: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Token invalide ou expiré');
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpiresAt: null,
+      },
+    });
+
+    return { message: 'Mot de passe réinitialisé avec succès' };
   }
 
   private generateToken(userId: string, email: string): string {
