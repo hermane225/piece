@@ -52,6 +52,12 @@ enum Category {
   VARIOUS_PARTS
 }
 
+enum NotificationType {
+  CHAT_MESSAGE
+  RECOMMENDATION
+  SYSTEM
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String
@@ -67,6 +73,11 @@ model User {
   updatedAt DateTime @updatedAt
 
   posts Post[]
+  sentMessages               ChatMessage[]             @relation("SentMessages")
+  conversations              ConversationParticipant[]
+  notifications              Notification[]
+  categoryPreferences        UserCategoryPreference[]
+  searchActivities           UserSearchActivity[]
 
   @@map("users")
 }
@@ -106,4 +117,85 @@ model Banner {
   updatedAt DateTime @updatedAt
 
   @@map("banners")
+}
+
+model Conversation {
+  id           String                    @id @default(uuid())
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  participants ConversationParticipant[]
+  messages     ChatMessage[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversationId String
+  userId         String
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model ChatMessage {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime     @default(now())
+  readAt         DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("chat_messages")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType @default(SYSTEM)
+  title     String
+  body      String
+  data      Json?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  readAt    DateTime?
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+model UserCategoryPreference {
+  id        String   @id @default(uuid())
+  userId    String
+  category  Category
+  weight    Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category])
+  @@index([userId])
+  @@map("user_category_preferences")
+}
+
+model UserSearchActivity {
+  id        String    @id @default(uuid())
+  userId    String
+  query     String
+  category  Category?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([category])
+  @@map("user_search_activities")
 }

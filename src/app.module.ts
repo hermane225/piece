@@ -10,6 +10,9 @@ import { PostsModule } from './posts/posts.module';
 import { AdminModule } from './admin/admin.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { BannersModule } from './banners/banners.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { ChatModule } from './chat/chat.module';
+import { RecommendationsModule } from './recommendations/recommendations.module';
 
 @Module({
   imports: [
@@ -37,6 +40,9 @@ import { BannersModule } from './banners/banners.module';
     AdminModule,
     CloudinaryModule,
     BannersModule,
+    NotificationsModule,
+    ChatModule,
+    RecommendationsModule,
   ],
   providers: [
     {

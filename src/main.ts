@@ -22,7 +22,7 @@ async function bootstrap() {
     .filter(Boolean);
 
   app.enableCors({
-    origin: '*', // Autorise toutes les origines (attention en production)
+    origin: isProd ? allowedOrigins : true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type,Authorization',
     credentials: true,
@@ -54,6 +54,9 @@ async function bootstrap() {
     .addTag('Posts', 'CRUD annonces + filtres + pagination')
     .addTag('Admin', 'Administration (validation, modération)')
     .addTag('Upload', "Upload d'images via Cloudinary")
+    .addTag('Chat', 'Messagerie entre utilisateurs')
+    .addTag('Notifications', 'Alertes utilisateur')
+    .addTag('Recommendations', 'Suggestions personnalisées')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
