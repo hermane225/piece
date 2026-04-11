@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -18,7 +19,19 @@ export class ChatService {
   ) {}
 
   async createConversation(currentUserId: string, dto: CreateConversationDto) {
-    const allParticipantIds = [...new Set([currentUserId, ...dto.participantIds])];
+    const participantCandidates = [
+      ...(dto.participantIds ?? []),
+      dto.participantId,
+      dto.userId,
+    ].filter((value): value is string => Boolean(value));
+
+    if (!participantCandidates.length) {
+      throw new BadRequestException(
+        'Veuillez fournir participantIds[] ou participantId ou userId',
+      );
+    }
+
+    const allParticipantIds = [...new Set([currentUserId, ...participantCandidates])];
 
     const usersCount = await this.prisma.user.count({
       where: { id: { in: allParticipantIds } },
