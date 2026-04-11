@@ -30,7 +30,7 @@ export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
   @Post('conversations')
-  @ApiOperation({ summary: 'Créer une conversation' })
+  @ApiOperation({ summary: 'Créer (ou retrouver) une conversation et envoyer un message initial optionnel' })
   @ApiResponse({ status: 201, description: 'Conversation créée' })
   createConversation(
     @CurrentUser('id') userId: string,

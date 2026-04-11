@@ -19,10 +19,30 @@ export class ChatService {
   ) {}
 
   async createConversation(currentUserId: string, dto: CreateConversationDto) {
+    let postContext:
+      | {
+          id: string;
+          title: string;
+          userId: string;
+        }
+      | null = null;
+
+    if (dto.postId) {
+      postContext = await this.prisma.post.findUnique({
+        where: { id: dto.postId },
+        select: { id: true, title: true, userId: true },
+      });
+
+      if (!postContext) {
+        throw new NotFoundException('Annonce non trouvée');
+      }
+    }
+
     const participantCandidates = [
       ...(dto.participantIds ?? []),
       dto.participantId,
       dto.userId,
+      postContext?.userId,
     ].filter((value): value is string => Boolean(value));
 
     if (!participantCandidates.length) {
@@ -32,6 +52,7 @@ export class ChatService {
     }
 
     const allParticipantIds = [...new Set([currentUserId, ...participantCandidates])];
+    const otherParticipantIds = allParticipantIds.filter((id) => id !== currentUserId);
 
     const usersCount = await this.prisma.user.count({
       where: { id: { in: allParticipantIds } },
@@ -41,26 +62,110 @@ export class ChatService {
       throw new NotFoundException('Un ou plusieurs utilisateurs sont introuvables');
     }
 
-    const conversation = await this.prisma.conversation.create({
-      data: {
-        participants: {
-          create: allParticipantIds.map((userId) => ({ userId })),
+    let conversation:
+      | {
+          id: string;
+          createdAt: Date;
+          updatedAt: Date;
+          participants: Array<{
+            id: string;
+            userId: string;
+            conversationId: string;
+            createdAt: Date;
+            user: { id: string; name: string; email: string; city: string };
+          }>;
+        }
+      | null = null;
+
+    // Réutilise une conversation existante dans le cas direct (2 utilisateurs).
+    if (otherParticipantIds.length === 1) {
+      const targetUserId = otherParticipantIds[0];
+      conversation = await this.prisma.conversation.findFirst({
+        where: {
+          AND: [
+            { participants: { some: { userId: currentUserId } } },
+            { participants: { some: { userId: targetUserId } } },
+            {
+              participants: {
+                every: {
+                  userId: {
+                    in: [currentUserId, targetUserId],
+                  },
+                },
+              },
+            },
+          ],
         },
-      },
-      include: {
-        participants: {
-          include: {
-            user: {
-              select: { id: true, name: true, email: true, city: true },
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: { id: true, name: true, email: true, city: true },
+              },
             },
           },
         },
-      },
-    });
+      });
+    }
+
+    if (!conversation) {
+      conversation = await this.prisma.conversation.create({
+        data: {
+          participants: {
+            create: allParticipantIds.map((userId) => ({ userId })),
+          },
+        },
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: { id: true, name: true, email: true, city: true },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    let messageResult:
+      | {
+          message: string;
+          data: {
+            id: string;
+            senderId: string;
+            conversationId: string;
+            content: string;
+            createdAt: Date;
+            readAt: Date | null;
+            sender: {
+              id: string;
+              name: string;
+              email: string;
+              city: string;
+            };
+          };
+        }
+      | undefined;
+
+    const cleanedInitialMessage = dto.initialMessage?.trim();
+    let messageToSend = cleanedInitialMessage;
+
+    if (postContext?.title && messageToSend) {
+      messageToSend = `[Annonce: ${postContext.title}] ${messageToSend}`;
+    } else if (postContext?.title && !messageToSend) {
+      messageToSend = `Bonjour, je suis interesse par votre annonce: ${postContext.title}`;
+    }
+
+    if (messageToSend) {
+      messageResult = await this.sendMessage(currentUserId, conversation.id, {
+        content: messageToSend,
+      });
+    }
 
     return {
-      message: 'Conversation créée avec succès',
+      message: 'Conversation prête',
       conversation,
+      initialMessage: messageResult?.data,
     };
   }
 

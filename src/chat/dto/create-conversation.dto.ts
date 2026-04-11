@@ -2,8 +2,11 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayUnique,
   IsArray,
+  IsNotEmpty,
   IsOptional,
+  IsString,
   IsUUID,
+  MaxLength,
 } from 'class-validator';
 
 export class CreateConversationDto {
@@ -35,4 +38,24 @@ export class CreateConversationDto {
   @IsOptional()
   @IsUUID('all')
   userId?: string;
+
+  @ApiPropertyOptional({
+    type: String,
+    description: 'ID annonce depuis la page détail (optionnel)',
+    example: 'b46f14ac-c4f0-4f7f-8f2e-91f7c8f5d4f4',
+  })
+  @IsOptional()
+  @IsUUID('all')
+  postId?: string;
+
+  @ApiPropertyOptional({
+    type: String,
+    description: 'Message initial à envoyer automatiquement (optionnel)',
+    example: 'Bonjour, cette pièce est-elle toujours disponible ?',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  initialMessage?: string;
 }
