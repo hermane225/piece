@@ -13,6 +13,7 @@ import { BannersModule } from './banners/banners.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ChatModule } from './chat/chat.module';
 import { RecommendationsModule } from './recommendations/recommendations.module';
+import { PresenceModule } from './presence/presence.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { RecommendationsModule } from './recommendations/recommendations.module'
     BannersModule,
     NotificationsModule,
     ChatModule,
+    PresenceModule,
     RecommendationsModule,
   ],
   providers: [

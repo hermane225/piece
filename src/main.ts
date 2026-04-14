@@ -55,6 +55,7 @@ async function bootstrap() {
     .addTag('Admin', 'Administration (validation, modération)')
     .addTag('Upload', "Upload d'images via Cloudinary")
     .addTag('Chat', 'Messagerie entre utilisateurs')
+    .addTag('Presence', 'Présence temps réel chat (online/last seen)')
     .addTag('Notifications', 'Alertes utilisateur')
     .addTag('Recommendations', 'Suggestions personnalisées')
     .build();
