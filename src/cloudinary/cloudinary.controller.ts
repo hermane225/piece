@@ -4,6 +4,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFiles,
+  Logger,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -23,6 +24,8 @@ import { memoryStorage } from 'multer';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class CloudinaryController {
+  private readonly logger = new Logger(CloudinaryController.name);
+
   constructor(private readonly cloudinaryService: CloudinaryService) {}
 
   @Post('images')
@@ -59,6 +62,20 @@ export class CloudinaryController {
     }),
   )
   async uploadImages(@UploadedFiles() files: Express.Multer.File[]) {
+    this.logger.debug(
+      `uploadImages called: ${files?.length ?? 0} fichiers reçus`,
+    );
+
+    if (!files || files.length === 0) {
+      this.logger.warn('uploadImages: aucun fichier reçu');
+    } else {
+      files.forEach((file, idx) => {
+        this.logger.debug(
+          `File ${idx}: name=${file.originalname}, size=${file.size}, mime=${file.mimetype}`,
+        );
+      });
+    }
+
     const urls = await this.cloudinaryService.uploadMultipleImages(files);
     return {
       message: 'Images uploadées avec succès',
