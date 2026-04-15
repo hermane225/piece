@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -18,6 +19,8 @@ import { MailService } from './mail.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -140,6 +143,10 @@ export class AuthService {
         resetCode,
       );
     } catch (error) {
+      this.logger.error(
+        `Échec forgotPassword pour ${user.email}: envoi email impossible`,
+        error as any,
+      );
       await this.prisma.user.update({
         where: { id: user.id },
         data: {
