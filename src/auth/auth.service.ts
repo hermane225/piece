@@ -3,7 +3,6 @@ import {
   ConflictException,
   UnauthorizedException,
   BadRequestException,
-  InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -27,6 +26,10 @@ export class AuthService {
     private configService: ConfigService,
     private mailService: MailService,
   ) {}
+
+  private isProduction(): boolean {
+    return this.configService.get<string>('NODE_ENV') === 'production';
+  }
 
   private generateResetCode(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -137,26 +140,28 @@ export class AuthService {
     });
 
     try {
-      await this.mailService.sendResetCodeEmail(
+      const mailSent = await this.mailService.sendResetCodeEmail(
         user.email,
         user.name,
         resetCode,
       );
+      if (!mailSent) {
+        this.logger.warn(
+          `Échec forgotPassword pour ${user.email}: email non envoyé, réponse sans erreur`,
+        );
+      }
     } catch (error) {
       this.logger.error(
-        `Échec forgotPassword pour ${user.email}: envoi email impossible`,
+        `Échec forgotPassword pour ${user.email}: erreur inattendue`,
         error as any,
       );
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          resetPasswordToken: null,
-          resetPasswordExpiresAt: null,
-        },
-      });
-      throw new InternalServerErrorException(
-        "Échec d'envoi email, aucun code de réinitialisation n'a été appliqué",
-      );
+    }
+
+    if (!this.isProduction()) {
+      return {
+        ...genericResponse,
+        resetToken: resetCode,
+      };
     }
 
     return genericResponse;

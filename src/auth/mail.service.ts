@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
 
@@ -72,7 +72,7 @@ export class MailService {
       this.logger.error(
         'Configuration email incomplète. Variables attendues: SMTP_URL ou SMTP_HOST(+SMTP_PORT), SMTP_USER, SMTP_PASS, SMTP_FROM.',
       );
-      throw new InternalServerErrorException('Configuration email manquante');
+      return false;
     }
 
     const transporter = smtpUrl
@@ -90,17 +90,20 @@ export class MailService {
       await transporter.verify();
     } catch (error) {
       this.logger.error('Connexion SMTP impossible (vérification échouée)', error as any);
-      throw new InternalServerErrorException('Configuration SMTP invalide');
+      return false;
     }
 
-    await transporter.sendMail({
-      from,
-      to: email,
-      subject: 'Réinitialisation de votre mot de passe',
-      text: `Bonjour ${name},\n\nVotre code de réinitialisation est: ${resetCode}\n\nCe code expire dans 1 heure.\n`,
-    }).catch((error) => {
+    try {
+      await transporter.sendMail({
+        from,
+        to: email,
+        subject: 'Réinitialisation de votre mot de passe',
+        text: `Bonjour ${name},\n\nVotre code de réinitialisation est: ${resetCode}\n\nCe code expire dans 1 heure.\n`,
+      });
+      return true;
+    } catch (error) {
       this.logger.error(`Erreur envoi mail reset pour ${email}`, error as any);
-      throw new InternalServerErrorException("Impossible d'envoyer l'email de réinitialisation");
-    });
+      return false;
+    }
   }
 }
