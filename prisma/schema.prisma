@@ -58,6 +58,22 @@ enum NotificationType {
   SYSTEM
 }
 
+enum TechnicianSpecialty {
+  COMPUTER_REPAIR
+  PLUMBER
+  ELECTRICIAN
+  CARPENTER
+  AC_TECHNICIAN
+  APPLIANCES_REPAIR
+  AUTO_REPAIR
+  MOTO_REPAIR
+  SOLAR_INSTALLATION
+  ELECTRICAL_EQUIPMENT
+  INDUSTRIAL_EQUIPMENT
+  GAMING_CONSOLE_REPAIR
+  OTHER
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String
@@ -79,6 +95,7 @@ model User {
   categoryPreferences        UserCategoryPreference[]
   searchActivities           UserSearchActivity[]
   presence                   UserPresence?
+  techniciansCreated         Technician[]             @relation("TechnicianCreatedBy")
 
   @@map("users")
 }
@@ -212,5 +229,32 @@ model UserPresence {
   @@index([isOnline])
   @@index([updatedAt])
   @@map("user_presence")
+}
+
+model Technician {
+  id                String                 @id @default(uuid())
+  name              String
+  phone             String                 @unique
+  specialty         TechnicianSpecialty
+  city              String
+  email             String?
+  description       String?
+  address           String?
+  certifications    String?
+  yearsOfExperience Int?
+  hourlyRate        Float?
+  availability      String?                // JSON string pour les horaires
+  status            Boolean                @default(true) // true = actif, false = inactif
+  createdByAdminId  String
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  createdByAdmin    User                   @relation("TechnicianCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([specialty])
+  @@index([city])
+  @@index([status])
+  @@index([createdByAdminId])
+  @@map("technicians")
 }
 
