@@ -88,9 +88,13 @@ export class MailService {
 
     try {
       await transporter.verify();
+      this.logger.debug(`SMTP connecté pour ${from}`);
     } catch (error) {
-      this.logger.error('Connexion SMTP impossible (vérification échouée)', error as any);
-      return false;
+      this.logger.error(
+        `Erreur vérification SMTP avec host=${host}, port=${port}, user=${user}`,
+        error as any,
+      );
+      throw error;
     }
 
     try {
@@ -100,10 +104,11 @@ export class MailService {
         subject: 'Réinitialisation de votre mot de passe',
         text: `Bonjour ${name},\n\nVotre code de réinitialisation est: ${resetCode}\n\nCe code expire dans 1 heure.\n`,
       });
+      this.logger.debug(`Email envoyé avec succès à ${email}`);
       return true;
     } catch (error) {
       this.logger.error(`Erreur envoi mail reset pour ${email}`, error as any);
-      return false;
+      throw error;
     }
   }
 }

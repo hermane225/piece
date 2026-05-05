@@ -213,3 +213,4 @@ model UserPresence {
   @@index([updatedAt])
   @@map("user_presence")
 }
+

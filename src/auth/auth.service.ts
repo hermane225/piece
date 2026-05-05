@@ -146,14 +146,24 @@ export class AuthService {
         resetCode,
       );
       if (!mailSent) {
-        this.logger.warn(
-          `Échec forgotPassword pour ${user.email}: email non envoyé, réponse sans erreur`,
-        );
+        throw new Error('Impossible d\'envoyer l\'email de réinitialisation');
       }
     } catch (error) {
+      // Nettoyer le token si l'envoi échoue
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          resetPasswordToken: null,
+          resetPasswordExpiresAt: null,
+        },
+      });
+
       this.logger.error(
-        `Échec forgotPassword pour ${user.email}: erreur inattendue`,
+        `Échec forgotPassword pour ${user.email}`,
         error as any,
+      );
+      throw new BadRequestException(
+        'Impossible d\'envoyer le code de réinitialisation. Vérifiez votre email et réessayez.',
       );
     }
 
