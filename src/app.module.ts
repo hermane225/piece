@@ -14,6 +14,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ChatModule } from './chat/chat.module';
 import { RecommendationsModule } from './recommendations/recommendations.module';
 import { PresenceModule } from './presence/presence.module';
+import { TechniciansModule } from './technicians/technicians.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { PresenceModule } from './presence/presence.module';
     ChatModule,
     PresenceModule,
     RecommendationsModule,
+    TechniciansModule,
   ],
   providers: [
     {
