@@ -1,19 +1,17 @@
 import "dotenv/config";
+
+const datasourceUrl = process.env.DATABASE_URL;
+if (!datasourceUrl) {
+  throw new Error("DATABASE_URL environment variable is not set");
+}
+
 import { defineConfig } from "prisma/config";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
-  db: {
-    provider: "postgresql",
-    datasourceUrl: process.env.DATABASE_URL!,
-  },
+  datasourceUrl,
   migrate: {
     seed: 'ts-node prisma/seed.ts',
-    async onMigrate() {
-      return {
-        datasourceUrl: process.env.DATABASE_URL!,
-      };
-    },
   },
 });
 
