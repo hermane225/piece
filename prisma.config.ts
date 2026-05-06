@@ -5,7 +5,7 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   db: {
     provider: "postgresql",
-    url: process.env.DATABASE_URL!,
+    datasourceUrl: process.env.DATABASE_URL!,
   },
   migrate: {
     seed: 'ts-node prisma/seed.ts',
