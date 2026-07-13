@@ -5,7 +5,9 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+  });
 
   // Sécurité HTTP
   app.use(helmet());
@@ -58,6 +60,7 @@ async function bootstrap() {
     .addTag('Presence', 'Présence temps réel chat (online/last seen)')
     .addTag('Notifications', 'Alertes utilisateur')
     .addTag('Recommendations', 'Suggestions personnalisées')
+    .addTag('Payments', 'Paiements GeniusPay et webhooks')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

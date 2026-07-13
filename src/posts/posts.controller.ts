@@ -29,6 +29,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { BoostPaymentsService } from '../payments/boost-payments.service';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -36,6 +37,7 @@ export class PostsController {
   constructor(
     private readonly postsService: PostsService,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly boostPaymentsService: BoostPaymentsService,
   ) {}
 
   @Post()
@@ -117,28 +119,29 @@ export class PostsController {
   @Patch(':id/boost')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Booster une annonce (payant, simulation)' })
+  @ApiOperation({ summary: 'Créer un paiement GeniusPay pour booster une annonce' })
   @ApiParam({ name: 'id', description: "ID de l'annonce" })
-  @ApiResponse({ status: 200, description: 'Annonce boostée' })
+  @ApiResponse({ status: 200, description: 'Checkout GeniusPay créé' })
   async boostPost(
     @Param('id') id: string, @CurrentUser('id') userId: string
   ) {
-    // Simulation paiement validé : boost 7 jours
-    return this.postsService.boostPost(id, userId, 7);
+    return this.boostPaymentsService.createBoostCheckout(id, userId, {
+      days: 7,
+    });
   }
 
   @Patch(':id/pay-boost')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Payer et booster une annonce' })
+  @ApiOperation({ summary: 'Payer un boost via GeniusPay' })
   @ApiParam({ name: 'id', description: "ID de l'annonce" })
-  @ApiResponse({ status: 200, description: 'Paiement enregistré et annonce boostée' })
+  @ApiResponse({ status: 200, description: 'Paiement GeniusPay créé' })
   @ApiResponse({ status: 403, description: 'Accès refusé' })
   payAndBoost(
     @Param('id') id: string,
     @CurrentUser('id') userId: string,
     @Body() dto: PayBoostDto,
   ) {
-    return this.postsService.payAndBoost(id, userId, dto);
+    return this.boostPaymentsService.createBoostCheckout(id, userId, dto);
   }
 }

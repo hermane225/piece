@@ -15,6 +15,7 @@ import { ChatModule } from './chat/chat.module';
 import { RecommendationsModule } from './recommendations/recommendations.module';
 import { PresenceModule } from './presence/presence.module';
 import { TechniciansModule } from './technicians/technicians.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { TechniciansModule } from './technicians/technicians.module';
     PresenceModule,
     RecommendationsModule,
     TechniciansModule,
+    PaymentsModule,
   ],
   providers: [
     {

@@ -58,6 +58,15 @@ enum NotificationType {
   SYSTEM
 }
 
+enum BoostPaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  EXPIRED
+  REFUNDED
+}
+
 enum TechnicianSpecialty {
   COMPUTER_REPAIR
   PLUMBER
@@ -96,6 +105,7 @@ model User {
   searchActivities           UserSearchActivity[]
   presence                   UserPresence?
   techniciansCreated         Technician[]             @relation("TechnicianCreatedBy")
+  boostPayments              BoostPayment[]
 
   @@map("users")
 }
@@ -121,6 +131,8 @@ model Post {
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  boostPayments BoostPayment[]
 
   @@map("posts")
 }
@@ -256,5 +268,43 @@ model Technician {
   @@index([status])
   @@index([createdByAdminId])
   @@map("technicians")
+}
+
+model BoostPayment {
+  id           String             @id @default(uuid())
+  reference    String             @unique
+  checkoutUrl  String?
+  amount       Float
+  days         Int
+  status       BoostPaymentStatus @default(PENDING)
+  metadata     Json?
+  postId       String
+  userId       String
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  completedAt  DateTime?
+  failedAt     DateTime?
+  errorMessage String?
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([userId])
+  @@index([status])
+  @@map("boost_payments")
+}
+
+model WebhookEvent {
+  id           String   @id @default(uuid())
+  provider     String
+  eventId      String
+  eventName    String
+  payload      Json
+  processedAt  DateTime @default(now())
+
+  @@unique([provider, eventId])
+  @@index([provider, eventName])
+  @@map("webhook_events")
 }
 
