@@ -101,7 +101,9 @@ export class PresenceService {
     return update;
   }
 
-  async handleHeartbeat(socketId: string): Promise<PresenceUpdatePayload | null> {
+  async handleHeartbeat(
+    socketId: string,
+  ): Promise<PresenceUpdatePayload | null> {
     const state = this.statesBySocketId.get(socketId);
     if (!state || state.closed) {
       return null;
@@ -140,7 +142,9 @@ export class PresenceService {
     return update;
   }
 
-  async handleDisconnect(socketId: string): Promise<PresenceUpdatePayload | null> {
+  async handleDisconnect(
+    socketId: string,
+  ): Promise<PresenceUpdatePayload | null> {
     const state = this.statesBySocketId.get(socketId);
     if (!state || state.closed) {
       return null;
@@ -184,7 +188,11 @@ export class PresenceService {
       });
     });
 
-    const update = this.buildPresenceUpdate(state.userId, finalState.isOnline, now);
+    const update = this.buildPresenceUpdate(
+      state.userId,
+      finalState.isOnline,
+      now,
+    );
     await this.presenceCacheService.set({
       userId: update.userId,
       isOnline: update.isOnline,
@@ -259,8 +267,12 @@ export class PresenceService {
     return setTimeout(() => {
       void this.handleDisconnect(socketId).catch((error: unknown) => {
         const message =
-          error instanceof Error ? error.message : 'Erreur inconnue timeout présence';
-        this.logger.error(`Timeout de présence échoué pour ${socketId}: ${message}`);
+          error instanceof Error
+            ? error.message
+            : 'Erreur inconnue timeout présence';
+        this.logger.error(
+          `Timeout de présence échoué pour ${socketId}: ${message}`,
+        );
       });
     }, this.heartbeatTimeoutMs);
   }
@@ -288,7 +300,10 @@ export class PresenceService {
     }
   }
 
-  private async assertCanReadPresence(currentUserId: string, userIds: string[]) {
+  private async assertCanReadPresence(
+    currentUserId: string,
+    userIds: string[],
+  ) {
     const requestedWithoutSelf = userIds.filter((id) => id !== currentUserId);
     if (!requestedWithoutSelf.length) {
       return;
@@ -326,7 +341,9 @@ export class PresenceService {
     }
   }
 
-  private async getPresenceUsers(userIds: string[]): Promise<PresenceUserState[]> {
+  private async getPresenceUsers(
+    userIds: string[],
+  ): Promise<PresenceUserState[]> {
     const fromCache = await this.presenceCacheService.getBatch(userIds);
     const missingUserIds = userIds.filter((userId) => !fromCache.has(userId));
 

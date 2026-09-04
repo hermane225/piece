@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -17,7 +25,9 @@ import { RecommendationsService } from './recommendations.service';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class RecommendationsController {
-  constructor(private readonly recommendationsService: RecommendationsService) {}
+  constructor(
+    private readonly recommendationsService: RecommendationsService,
+  ) {}
 
   @Get('preferences')
   @ApiOperation({ summary: 'Récupérer mes préférences de catégories' })
@@ -37,7 +47,8 @@ export class RecommendationsController {
 
   @Post('searches')
   @ApiOperation({
-    summary: 'Enregistrer une recherche utilisateur et déclencher une alerte suggestion',
+    summary:
+      'Enregistrer une recherche utilisateur et déclencher une alerte suggestion',
   })
   trackSearch(@CurrentUser('id') userId: string, @Body() dto: TrackSearchDto) {
     return this.recommendationsService.trackSearch(userId, dto);

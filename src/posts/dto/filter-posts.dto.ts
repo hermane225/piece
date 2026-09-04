@@ -16,13 +16,19 @@ export class FilterPostsDto extends PaginationDto {
   @IsString()
   city?: string;
 
-  @ApiPropertyOptional({ enum: CategoryEnum, description: 'Filtrer par catégorie' })
+  @ApiPropertyOptional({
+    enum: CategoryEnum,
+    description: 'Filtrer par catégorie',
+  })
   @IsOptional()
   @Transform(({ value }) => normalizeEnumInput(value))
   @IsEnum(CategoryEnum)
   category?: CategoryEnum;
 
-  @ApiPropertyOptional({ enum: ConditionEnum, description: 'Filtrer par condition' })
+  @ApiPropertyOptional({
+    enum: ConditionEnum,
+    description: 'Filtrer par condition',
+  })
   @IsOptional()
   @Transform(({ value }) => normalizeEnumInput(value))
   @IsEnum(ConditionEnum)
@@ -40,7 +46,10 @@ export class FilterPostsDto extends PaginationDto {
   @IsNumber()
   maxPrice?: number;
 
-  @ApiPropertyOptional({ example: 'écran iPhone', description: 'Recherche par mot-clé' })
+  @ApiPropertyOptional({
+    example: 'écran iPhone',
+    description: 'Recherche par mot-clé',
+  })
   @IsOptional()
   @IsString()
   search?: string;

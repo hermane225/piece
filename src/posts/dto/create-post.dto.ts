@@ -52,12 +52,18 @@ export enum CategoryEnum {
 }
 
 export class CreatePostDto {
-  @ApiProperty({ example: 'Écran iPhone 14 Pro Max', description: 'Titre de l\'annonce' })
+  @ApiProperty({
+    example: 'Écran iPhone 14 Pro Max',
+    description: "Titre de l'annonce",
+  })
   @IsNotEmpty({ message: 'Le titre est requis' })
   @IsString()
   title: string;
 
-  @ApiProperty({ example: 'Écran original en très bon état', description: 'Description' })
+  @ApiProperty({
+    example: 'Écran original en très bon état',
+    description: 'Description',
+  })
   @IsNotEmpty({ message: 'La description est requise' })
   @IsString()
   description: string;
@@ -68,10 +74,17 @@ export class CreatePostDto {
   @IsNumber()
   price: number;
 
-  @ApiProperty({ enum: ConditionEnum, example: 'NEUF', description: 'État de la pièce' })
+  @ApiProperty({
+    enum: ConditionEnum,
+    example: 'NEUF',
+    description: 'État de la pièce',
+  })
   @IsNotEmpty({ message: 'La condition est requise' })
   @Transform(({ value }) => normalizeEnumInput(value))
-  @IsEnum(ConditionEnum, { message: 'Condition invalide (NEUF, QUASI_NEUF, RECONDITIONNE, SECONDE_MAIN)' })
+  @IsEnum(ConditionEnum, {
+    message:
+      'Condition invalide (NEUF, QUASI_NEUF, RECONDITIONNE, SECONDE_MAIN)',
+  })
   condition: ConditionEnum;
 
   @ApiProperty({ example: 'Apple', description: 'Marque' })
@@ -84,7 +97,11 @@ export class CreatePostDto {
   @IsString()
   model: string;
 
-  @ApiProperty({ enum: CategoryEnum, example: 'PHONE', description: 'Catégorie' })
+  @ApiProperty({
+    enum: CategoryEnum,
+    example: 'PHONE',
+    description: 'Catégorie',
+  })
   @IsNotEmpty({ message: 'La catégorie est requise' })
   @Transform(({ value }) => normalizeEnumInput(value))
   @IsEnum(CategoryEnum, { message: 'Catégorie invalide' })

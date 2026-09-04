@@ -1,4 +1,4 @@
-  // ...existing code...
+// ...existing code...
 import {
   Controller,
   Get,
@@ -61,7 +61,9 @@ export class PostsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Lister les annonces (public, avec filtres et pagination)' })
+  @ApiOperation({
+    summary: 'Lister les annonces (public, avec filtres et pagination)',
+  })
   @ApiResponse({ status: 200, description: 'Liste des annonces approuvées' })
   findAll(@Query() filters: FilterPostsDto) {
     return this.postsService.findAll(filters);
@@ -69,7 +71,10 @@ export class PostsController {
 
   @Get('filters')
   @ApiOperation({ summary: 'Lister les options de filtre disponibles' })
-  @ApiResponse({ status: 200, description: 'Catégories et conditions disponibles' })
+  @ApiResponse({
+    status: 200,
+    description: 'Catégories et conditions disponibles',
+  })
   getFilterOptions() {
     return this.postsService.getFilterOptions();
   }
@@ -83,7 +88,11 @@ export class PostsController {
     @CurrentUser('id') userId: string,
     @Query() pagination: PaginationDto,
   ) {
-    return this.postsService.findMyPosts(userId, pagination.page, pagination.limit);
+    return this.postsService.findMyPosts(
+      userId,
+      pagination.page,
+      pagination.limit,
+    );
   }
 
   @Get(':id')
@@ -102,7 +111,11 @@ export class PostsController {
   @ApiParam({ name: 'id', description: "ID de l'annonce" })
   @ApiResponse({ status: 200, description: 'Annonce mise à jour' })
   @ApiResponse({ status: 403, description: 'Accès refusé' })
-  update(@Param('id') id: string, @CurrentUser('id') userId: string, @Body() dto: UpdatePostDto) {
+  update(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdatePostDto,
+  ) {
     return this.postsService.update(id, userId, dto);
   }
 
@@ -119,12 +132,12 @@ export class PostsController {
   @Patch(':id/boost')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Créer un paiement GeniusPay pour booster une annonce' })
+  @ApiOperation({
+    summary: 'Créer un paiement GeniusPay pour booster une annonce',
+  })
   @ApiParam({ name: 'id', description: "ID de l'annonce" })
   @ApiResponse({ status: 200, description: 'Checkout GeniusPay créé' })
-  async boostPost(
-    @Param('id') id: string, @CurrentUser('id') userId: string
-  ) {
+  async boostPost(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return this.boostPaymentsService.createBoostCheckout(id, userId, {
       days: 7,
     });

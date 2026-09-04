@@ -18,7 +18,10 @@ export class MailService {
     return undefined;
   }
 
-  private parseBoolean(value: string | undefined, defaultValue = false): boolean {
+  private parseBoolean(
+    value: string | undefined,
+    defaultValue = false,
+  ): boolean {
     if (!value) {
       return defaultValue;
     }
@@ -36,9 +39,14 @@ export class MailService {
 
   async sendResetCodeEmail(email: string, name: string, resetCode: string) {
     const smtpUrl = this.getFirstDefined('SMTP_URL', 'MAIL_URL', 'EMAIL_URL');
-    const service = this.getFirstDefined('SMTP_SERVICE', 'MAIL_SERVICE', 'EMAIL_SERVICE');
+    const service = this.getFirstDefined(
+      'SMTP_SERVICE',
+      'MAIL_SERVICE',
+      'EMAIL_SERVICE',
+    );
     const host = this.getFirstDefined('SMTP_HOST', 'MAIL_HOST', 'EMAIL_HOST');
-    const portValue = this.getFirstDefined('SMTP_PORT', 'MAIL_PORT', 'EMAIL_PORT') ?? '587';
+    const portValue =
+      this.getFirstDefined('SMTP_PORT', 'MAIL_PORT', 'EMAIL_PORT') ?? '587';
     const port = Number(portValue);
     const user = this.getFirstDefined(
       'SMTP_USER',
@@ -58,13 +66,18 @@ export class MailService {
       'EMAIL_PASSWORD',
       'BREVO_SMTP_KEY',
     );
-    const from = this.getFirstDefined('SMTP_FROM', 'MAIL_FROM', 'EMAIL_FROM') ?? user;
+    const from =
+      this.getFirstDefined('SMTP_FROM', 'MAIL_FROM', 'EMAIL_FROM') ?? user;
     const secure = this.parseBoolean(
       this.getFirstDefined('SMTP_SECURE', 'MAIL_SECURE', 'EMAIL_SECURE'),
       port === 465,
     );
     const requireTls = this.parseBoolean(
-      this.getFirstDefined('SMTP_REQUIRE_TLS', 'MAIL_REQUIRE_TLS', 'EMAIL_REQUIRE_TLS'),
+      this.getFirstDefined(
+        'SMTP_REQUIRE_TLS',
+        'MAIL_REQUIRE_TLS',
+        'EMAIL_REQUIRE_TLS',
+      ),
       false,
     );
 
@@ -92,7 +105,7 @@ export class MailService {
     } catch (error) {
       this.logger.error(
         `Erreur vérification SMTP avec host=${host}, port=${port}, user=${user}`,
-        error as any,
+        error,
       );
       throw error;
     }
@@ -107,7 +120,7 @@ export class MailService {
       this.logger.debug(`Email envoyé avec succès à ${email}`);
       return true;
     } catch (error) {
-      this.logger.error(`Erreur envoi mail reset pour ${email}`, error as any);
+      this.logger.error(`Erreur envoi mail reset pour ${email}`, error);
       throw error;
     }
   }

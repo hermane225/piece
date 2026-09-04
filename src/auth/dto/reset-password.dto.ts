@@ -10,8 +10,13 @@ export class ResetPasswordDto {
   @IsString()
   token: string;
 
-  @ApiProperty({ example: 'NouveauMotDePasse123', description: 'Nouveau mot de passe (min 6 caractères)' })
+  @ApiProperty({
+    example: 'NouveauMotDePasse123',
+    description: 'Nouveau mot de passe (min 6 caractères)',
+  })
   @IsNotEmpty({ message: 'Le nouveau mot de passe est requis' })
-  @MinLength(6, { message: 'Le mot de passe doit contenir au moins 6 caractères' })
+  @MinLength(6, {
+    message: 'Le mot de passe doit contenir au moins 6 caractères',
+  })
   password: string;
 }

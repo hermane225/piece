@@ -63,7 +63,8 @@ export class AuthService {
       },
     });
 
-    const { password, resetPasswordToken, resetPasswordExpiresAt, ...result } = user;
+    const { password, resetPasswordToken, resetPasswordExpiresAt, ...result } =
+      user;
     const token = this.generateToken(user.id, user.email);
 
     return {
@@ -89,7 +90,8 @@ export class AuthService {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
 
-    const { password, resetPasswordToken, resetPasswordExpiresAt, ...result } = user;
+    const { password, resetPasswordToken, resetPasswordExpiresAt, ...result } =
+      user;
     const token = this.generateToken(user.id, user.email);
 
     return {
@@ -108,7 +110,8 @@ export class AuthService {
       throw new UnauthorizedException('Utilisateur non trouvé');
     }
 
-    const { password, resetPasswordToken, resetPasswordExpiresAt, ...result } = user;
+    const { password, resetPasswordToken, resetPasswordExpiresAt, ...result } =
+      user;
     return result;
   }
 
@@ -119,8 +122,7 @@ export class AuthService {
 
     // Réponse générique pour éviter l'énumération d'emails.
     const genericResponse = {
-      message:
-        'Si cet email existe, un nouveau mot de passe a été envoyé.',
+      message: 'Si cet email existe, un nouveau mot de passe a été envoyé.',
     };
 
     if (!user) {
@@ -146,7 +148,7 @@ export class AuthService {
         resetCode,
       );
       if (!mailSent) {
-        throw new Error('Impossible d\'envoyer l\'email de réinitialisation');
+        throw new Error("Impossible d'envoyer l'email de réinitialisation");
       }
     } catch (error) {
       // Nettoyer le token si l'envoi échoue
@@ -158,12 +160,9 @@ export class AuthService {
         },
       });
 
-      this.logger.error(
-        `Échec forgotPassword pour ${user.email}`,
-        error as any,
-      );
+      this.logger.error(`Échec forgotPassword pour ${user.email}`, error);
       throw new BadRequestException(
-        'Impossible d\'envoyer le code de réinitialisation. Vérifiez votre email et réessayez.',
+        "Impossible d'envoyer le code de réinitialisation. Vérifiez votre email et réessayez.",
       );
     }
 

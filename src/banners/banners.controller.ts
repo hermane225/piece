@@ -86,7 +86,7 @@ export class BannersController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Détail d\'une bannière' })
+  @ApiOperation({ summary: "Détail d'une bannière" })
   @ApiParam({ name: 'id', description: 'ID de la bannière' })
   @ApiResponse({ status: 200, description: 'Détail bannière' })
   @ApiResponse({ status: 404, description: 'Bannière non trouvée' })

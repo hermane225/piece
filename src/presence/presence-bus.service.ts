@@ -27,7 +27,9 @@ export class PresenceBusService implements OnModuleDestroy {
     if (!redisUrl) {
       this.publisher = null;
       this.subscriber = null;
-      this.logger.log('Redis absent: diffusion présence en mode instance unique');
+      this.logger.log(
+        'Redis absent: diffusion présence en mode instance unique',
+      );
       return;
     }
 
@@ -52,7 +54,8 @@ export class PresenceBusService implements OnModuleDestroy {
     });
 
     void this.subscriber.subscribe(this.channel).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      const message =
+        error instanceof Error ? error.message : 'Erreur inconnue';
       this.logger.error(`Abonnement Redis présence impossible: ${message}`);
     });
   }

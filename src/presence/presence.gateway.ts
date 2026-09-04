@@ -36,7 +36,11 @@ type SubscribePayload = {
   },
 })
 export class PresenceGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy
+  implements
+    OnGatewayInit,
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnModuleDestroy
 {
   @WebSocketServer()
   private server!: Server;
@@ -71,7 +75,9 @@ export class PresenceGateway
       await this.presenceService.registerConnection(userId, client.id);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Connexion socket non autorisée';
+        error instanceof Error
+          ? error.message
+          : 'Connexion socket non autorisée';
       this.logger.warn(`Connexion présence rejetée (${client.id}): ${message}`);
       client.disconnect(true);
     }
@@ -93,7 +99,11 @@ export class PresenceGateway
       throw new WsException('Payload invalide: userIds[] est obligatoire');
     }
 
-    const snapshot = await this.presenceService.subscribe(userId, client.id, userIds);
+    const snapshot = await this.presenceService.subscribe(
+      userId,
+      client.id,
+      userIds,
+    );
     client.emit('presence:snapshot', snapshot);
     return snapshot;
   }

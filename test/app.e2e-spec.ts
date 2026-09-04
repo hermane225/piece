@@ -45,9 +45,7 @@ describe('AppController (e2e)', () => {
   });
 
   it('/api/notifications (GET) - requires auth', () => {
-    return request(app.getHttpServer())
-      .get('/api/notifications')
-      .expect(401);
+    return request(app.getHttpServer()).get('/api/notifications').expect(401);
   });
 
   it('/api/notifications/unread-count (GET) - requires auth', () => {

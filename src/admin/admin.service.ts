@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { CreateTechnicianDto } from './dto/create-technician.dto';
@@ -78,7 +82,8 @@ export class AdminService {
     });
 
     return {
-      message: 'Annonce approuvée avec succès. Tous les posts de cet utilisateur sont désormais approuvés automatiquement.',
+      message:
+        'Annonce approuvée avec succès. Tous les posts de cet utilisateur sont désormais approuvés automatiquement.',
       post: updated,
     };
   }
@@ -92,7 +97,7 @@ export class AdminService {
 
     await this.prisma.post.delete({ where: { id } });
 
-    return { message: 'Annonce supprimée par l\'admin' };
+    return { message: "Annonce supprimée par l'admin" };
   }
 
   async deleteUser(id: string) {
@@ -169,7 +174,9 @@ export class AdminService {
     });
 
     if (existingTechnician) {
-      throw new ConflictException('Un technicien avec ce numéro de téléphone existe déjà');
+      throw new ConflictException(
+        'Un technicien avec ce numéro de téléphone existe déjà',
+      );
     }
 
     const technician = await this.prisma.technician.create({
@@ -275,7 +282,9 @@ export class AdminService {
       });
 
       if (existingTechnician) {
-        throw new ConflictException('Un technicien avec ce numéro de téléphone existe déjà');
+        throw new ConflictException(
+          'Un technicien avec ce numéro de téléphone existe déjà',
+        );
       }
     }
 
@@ -290,7 +299,8 @@ export class AdminService {
         description: dto.description ?? technician.description,
         address: dto.address ?? technician.address,
         certifications: dto.certifications ?? technician.certifications,
-        yearsOfExperience: dto.yearsOfExperience ?? technician.yearsOfExperience,
+        yearsOfExperience:
+          dto.yearsOfExperience ?? technician.yearsOfExperience,
         hourlyRate: dto.hourlyRate ?? technician.hourlyRate,
         availability: dto.availability ?? technician.availability,
         status: dto.status ?? technician.status,

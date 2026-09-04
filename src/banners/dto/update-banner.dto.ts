@@ -7,7 +7,7 @@ export class UpdateBannerDto {
   @IsString()
   title?: string;
 
-  @ApiPropertyOptional({ description: 'URL de l\'image de la bannière' })
+  @ApiPropertyOptional({ description: "URL de l'image de la bannière" })
   @IsOptional()
   @IsString()
   image?: string;

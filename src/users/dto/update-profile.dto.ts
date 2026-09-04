@@ -22,8 +22,13 @@ export class UpdateProfileDto {
   @IsString()
   city?: string;
 
-  @ApiPropertyOptional({ example: 'NouveauMotDePasse123', description: 'Nouveau mot de passe' })
+  @ApiPropertyOptional({
+    example: 'NouveauMotDePasse123',
+    description: 'Nouveau mot de passe',
+  })
   @IsOptional()
-  @MinLength(6, { message: 'Le mot de passe doit contenir au moins 6 caractères' })
+  @MinLength(6, {
+    message: 'Le mot de passe doit contenir au moins 6 caractères',
+  })
   password?: string;
 }

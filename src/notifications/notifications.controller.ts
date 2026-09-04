@@ -1,4 +1,11 @@
-import { Controller, Get, Patch, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -30,7 +37,10 @@ export class NotificationsController {
 
   @Get('unread-count')
   @ApiOperation({ summary: 'Nombre de notifications non lues' })
-  @ApiResponse({ status: 200, description: 'Compteur de notifications non lues' })
+  @ApiResponse({
+    status: 200,
+    description: 'Compteur de notifications non lues',
+  })
   getUnreadCount(@CurrentUser('id') userId: string) {
     return this.notificationsService.getUnreadCount(userId);
   }

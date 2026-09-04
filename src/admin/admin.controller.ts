@@ -48,7 +48,7 @@ export class AdminController {
 
   @Patch('posts/:id/approve')
   @ApiOperation({ summary: 'Approuver une annonce' })
-  @ApiParam({ name: 'id', description: 'ID de l\'annonce' })
+  @ApiParam({ name: 'id', description: "ID de l'annonce" })
   @ApiResponse({ status: 200, description: 'Annonce approuvée' })
   approvePost(@Param('id') id: string) {
     return this.adminService.approvePost(id);
@@ -56,7 +56,7 @@ export class AdminController {
 
   @Delete('posts/:id')
   @ApiOperation({ summary: 'Supprimer une annonce (admin)' })
-  @ApiParam({ name: 'id', description: 'ID de l\'annonce' })
+  @ApiParam({ name: 'id', description: "ID de l'annonce" })
   @ApiResponse({ status: 200, description: 'Annonce supprimée' })
   deletePost(@Param('id') id: string) {
     return this.adminService.deletePost(id);
@@ -71,7 +71,7 @@ export class AdminController {
 
   @Delete('users/:id')
   @ApiOperation({ summary: 'Bannir / supprimer un utilisateur' })
-  @ApiParam({ name: 'id', description: 'ID de l\'utilisateur' })
+  @ApiParam({ name: 'id', description: "ID de l'utilisateur" })
   @ApiResponse({ status: 200, description: 'Utilisateur supprimé' })
   deleteUser(@Param('id') id: string) {
     return this.adminService.deleteUser(id);
@@ -93,7 +93,7 @@ export class AdminController {
   }
 
   @Get('technicians/:id')
-  @ApiOperation({ summary: 'Obtenir les détails d\'un technicien' })
+  @ApiOperation({ summary: "Obtenir les détails d'un technicien" })
   @ApiParam({ name: 'id', description: 'ID du technicien' })
   @ApiResponse({ status: 200, description: 'Détails du technicien' })
   getTechnicianById(@Param('id') id: string) {

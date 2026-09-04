@@ -9,6 +9,8 @@ export class LoginDto {
 
   @ApiProperty({ example: 'MotDePasse123', description: 'Mot de passe' })
   @IsNotEmpty({ message: 'Le mot de passe est requis' })
-  @MinLength(6, { message: 'Le mot de passe doit contenir au moins 6 caractères' })
+  @MinLength(6, {
+    message: 'Le mot de passe doit contenir au moins 6 caractères',
+  })
   password: string;
 }

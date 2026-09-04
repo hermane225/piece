@@ -47,7 +47,9 @@ export class GeniusPayService {
   private readonly mode = this.resolveMode();
 
   private resolveMode() {
-    return process.env.GENIUSPAY_MODE?.toLowerCase() === 'sandbox' ? 'sandbox' : 'live';
+    return process.env.GENIUSPAY_MODE?.toLowerCase() === 'sandbox'
+      ? 'sandbox'
+      : 'live';
   }
 
   private resolveEnv(...keys: string[]) {
@@ -115,7 +117,7 @@ export class GeniusPayService {
       body: JSON.stringify(payload),
     });
 
-    const result = (await response.json()) as any;
+    const result = await response.json();
 
     if (!response.ok || !result?.success || !result?.data) {
       const message =
@@ -138,7 +140,11 @@ export class GeniusPayService {
     };
   }
 
-  verifyWebhookSignature(rawBody: string | Buffer, timestamp: string, signature: string) {
+  verifyWebhookSignature(
+    rawBody: string | Buffer,
+    timestamp: string,
+    signature: string,
+  ) {
     if (!this.webhookSecret) {
       throw new InternalServerErrorException(
         'Configuration GeniusPay manquante (GENIUSPAY_WEBHOOK_SECRET[_SANDBOX|_LIVE])',
@@ -149,7 +155,9 @@ export class GeniusPayService {
       throw new BadRequestException('Headers webhook GeniusPay manquants');
     }
 
-    const payload = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : rawBody;
+    const payload = Buffer.isBuffer(rawBody)
+      ? rawBody.toString('utf8')
+      : rawBody;
     const expected = createHmac('sha256', this.webhookSecret)
       .update(`${timestamp}.${payload}`)
       .digest('hex');

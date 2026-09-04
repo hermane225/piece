@@ -11,12 +11,18 @@ import { ConditionEnum, CategoryEnum } from './create-post.dto';
 import { normalizeEnumInput } from '../../common/utils/normalize-enum-input';
 
 export class UpdatePostDto {
-  @ApiPropertyOptional({ example: 'Écran iPhone 14 Pro Max', description: 'Titre' })
+  @ApiPropertyOptional({
+    example: 'Écran iPhone 14 Pro Max',
+    description: 'Titre',
+  })
   @IsOptional()
   @IsString()
   title?: string;
 
-  @ApiPropertyOptional({ example: 'Écran original neuf', description: 'Description' })
+  @ApiPropertyOptional({
+    example: 'Écran original neuf',
+    description: 'Description',
+  })
   @IsOptional()
   @IsString()
   description?: string;

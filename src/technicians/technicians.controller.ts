@@ -1,14 +1,12 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { TechniciansService } from './technicians.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterTechniciansDto } from './dto/filter-technicians.dto';
-import { GetTechniciansResponseDto, TechnicianSpecialtyEnum } from './dto/technician.dto';
+import {
+  GetTechniciansResponseDto,
+  TechnicianSpecialtyEnum,
+} from './dto/technician.dto';
 
 @ApiTags('Technicians')
 @Controller('technicians')

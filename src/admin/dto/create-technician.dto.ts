@@ -55,7 +55,7 @@ export class CreateTechnicianDto {
   @IsEmail()
   email?: string;
 
-  @ApiPropertyOptional({ example: '10 ans d\'expérience en réparation Apple' })
+  @ApiPropertyOptional({ example: "10 ans d'expérience en réparation Apple" })
   @IsOptional()
   @IsString()
   description?: string;
@@ -84,7 +84,12 @@ export class CreateTechnicianDto {
   hourlyRate?: number;
 
   @ApiPropertyOptional({
-    example: { monday: '09:00-18:00', tuesday: '09:00-18:00', saturday: '09:00-13:00', sunday: 'closed' },
+    example: {
+      monday: '09:00-18:00',
+      tuesday: '09:00-18:00',
+      saturday: '09:00-13:00',
+      sunday: 'closed',
+    },
   })
   @IsOptional()
   @IsString()
