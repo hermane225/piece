@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -40,8 +40,13 @@ async function bootstrap() {
     }),
   );
 
-  // Préfixe global API
-  app.setGlobalPrefix('api');
+  // Préfixe global API (les pages de redirection deep-link restent hors préfixe)
+  app.setGlobalPrefix('api', {
+    exclude: [
+      { path: 'boost/success', method: RequestMethod.GET },
+      { path: 'boost/error', method: RequestMethod.GET },
+    ],
+  });
 
   // Swagger
   const config = new DocumentBuilder()
