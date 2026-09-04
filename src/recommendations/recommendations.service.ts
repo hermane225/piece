@@ -151,6 +151,7 @@ export class RecommendationsService {
             name: true,
             phone: true,
             city: true,
+            isVerifiedSeller: true,
           },
         },
       },
