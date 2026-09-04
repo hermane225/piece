@@ -26,10 +26,13 @@ describe('BoostPaymentsService', () => {
     isWebhookTimestampFresh: jest.Mock;
     verifyWebhookSignature: jest.Mock;
   };
+  let notificationsServiceMock: { createNotification: jest.Mock };
   let txMock: ReturnType<typeof createTxMock>;
   let service: BoostPaymentsService;
 
-  const buildWebhookPayload = (overrides: Partial<Record<string, unknown>> = {}) => {
+  const buildWebhookPayload = (
+    overrides: Partial<Record<string, unknown>> = {},
+  ) => {
     const payload = {
       id: 'evt_123',
       event: 'payment.success',
@@ -54,15 +57,23 @@ describe('BoostPaymentsService', () => {
   beforeEach(() => {
     txMock = createTxMock();
     prismaMock = {
-      $transaction: jest.fn(async (callback: (tx: typeof txMock) => Promise<unknown>) =>
-        callback(txMock),
+      $transaction: jest.fn(
+        async (callback: (tx: typeof txMock) => Promise<unknown>) =>
+          callback(txMock),
       ),
     };
     geniusPayServiceMock = {
       isWebhookTimestampFresh: jest.fn().mockReturnValue(true),
       verifyWebhookSignature: jest.fn().mockReturnValue(true),
     };
-    service = new BoostPaymentsService(prismaMock as never, geniusPayServiceMock as never);
+    notificationsServiceMock = {
+      createNotification: jest.fn().mockResolvedValue({}),
+    };
+    service = new BoostPaymentsService(
+      prismaMock as never,
+      geniusPayServiceMock as never,
+      notificationsServiceMock as never,
+    );
   });
 
   it('ignores an initiated webhook after a success', async () => {
@@ -168,6 +179,13 @@ describe('BoostPaymentsService', () => {
     expect(result).toEqual({
       message: 'Boost activé via GeniusPay',
       reference: 'PAY-123',
+      notify: {
+        userId: 'user_1',
+        postId: 'post_1',
+        reference: 'PAY-123',
+        status: BoostPaymentStatus.SUCCEEDED,
+        boostedUntil: expect.any(Date),
+      },
     });
     expect(txMock.boostPayment.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -186,5 +204,15 @@ describe('BoostPaymentsService', () => {
         boostPaymentAmount: 1000,
       }),
     });
+    expect(notificationsServiceMock.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user_1',
+        title: 'Boost activé',
+        data: expect.objectContaining({
+          postId: 'post_1',
+          reference: 'PAY-123',
+        }),
+      }),
+    );
   });
 });

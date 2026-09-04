@@ -2,12 +2,31 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, BoostPaymentStatus } from '@prisma/client';
+import { Prisma, BoostPaymentStatus, NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PayBoostDto } from '../posts/dto/pay-boost.dto';
 import { GeniusPayService, GeniusPayWebhookPayload } from './geniuspay.service';
+import { NotificationsService } from '../notifications/notifications.service';
+
+type BoostNotificationInfo = {
+  userId: string;
+  postId: string;
+  reference: string;
+  status: BoostPaymentStatus;
+  boostedUntil?: Date | null;
+};
+
+type WebhookHandlingResult = {
+  message: string;
+  event?: string;
+  eventId?: string;
+  reference?: string;
+  status?: BoostPaymentStatus;
+  notify?: BoostNotificationInfo;
+};
 
 type BoostPlan = {
   amount: number;
@@ -39,10 +58,54 @@ type ValidatedBoostMetadata = {
 
 @Injectable()
 export class BoostPaymentsService {
+  private readonly logger = new Logger(BoostPaymentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly geniusPayService: GeniusPayService,
+    private readonly notificationsService: NotificationsService,
   ) {}
+
+  private async notifyBoostOutcome(info: BoostNotificationInfo) {
+    const titlesByStatus: Partial<Record<BoostPaymentStatus, string>> = {
+      [BoostPaymentStatus.SUCCEEDED]: 'Boost activé',
+      [BoostPaymentStatus.FAILED]: 'Paiement échoué',
+      [BoostPaymentStatus.CANCELLED]: 'Paiement annulé',
+      [BoostPaymentStatus.EXPIRED]: 'Paiement expiré',
+      [BoostPaymentStatus.REFUNDED]: 'Paiement remboursé',
+    };
+
+    const title = titlesByStatus[info.status];
+    if (!title) {
+      return;
+    }
+
+    const body =
+      info.status === BoostPaymentStatus.SUCCEEDED && info.boostedUntil
+        ? `Votre annonce est boostée jusqu'au ${info.boostedUntil.toLocaleDateString()}`
+        : "Le paiement de votre boost n'a pas abouti.";
+
+    try {
+      await this.notificationsService.createNotification({
+        userId: info.userId,
+        type: NotificationType.SYSTEM,
+        title,
+        body,
+        data: {
+          postId: info.postId,
+          reference: info.reference,
+          status: info.status,
+          boostedUntil: info.boostedUntil?.toISOString() ?? null,
+        },
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.error(
+        `Notification boost échouée pour la référence ${info.reference}: ${message}`,
+      );
+    }
+  }
 
   private mapWebhookEventToStatus(event?: string) {
     if (!event) {
@@ -99,10 +162,15 @@ export class BoostPaymentsService {
     return false;
   }
 
-  private computeBoostedUntil(currentBoostedUntil: Date | null, days: number): Date {
+  private computeBoostedUntil(
+    currentBoostedUntil: Date | null,
+    days: number,
+  ): Date {
     const now = new Date();
     if (currentBoostedUntil && currentBoostedUntil.getTime() > now.getTime()) {
-      return new Date(currentBoostedUntil.getTime() + days * 24 * 60 * 60 * 1000);
+      return new Date(
+        currentBoostedUntil.getTime() + days * 24 * 60 * 60 * 1000,
+      );
     }
 
     return new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
@@ -150,7 +218,13 @@ export class BoostPaymentsService {
   private async getPostOwnership(postId: string, userId: string) {
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
-      select: { id: true, userId: true, boostedUntil: true, title: true, city: true },
+      select: {
+        id: true,
+        userId: true,
+        boostedUntil: true,
+        title: true,
+        city: true,
+      },
     });
 
     if (!post) {
@@ -158,7 +232,9 @@ export class BoostPaymentsService {
     }
 
     if (post.userId !== userId) {
-      throw new ForbiddenException('Vous ne pouvez booster que vos propres annonces');
+      throw new ForbiddenException(
+        'Vous ne pouvez booster que vos propres annonces',
+      );
     }
 
     return post;
@@ -215,7 +291,8 @@ export class BoostPaymentsService {
     });
 
     return {
-      message: 'Paiement GeniusPay créé. Redirigez l’utilisateur vers checkoutUrl.',
+      message:
+        'Paiement GeniusPay créé. Redirigez l’utilisateur vers checkoutUrl.',
       payment: {
         reference: boostPayment.reference,
         checkoutUrl: boostPayment.checkoutUrl,
@@ -226,11 +303,19 @@ export class BoostPaymentsService {
     };
   }
 
-  async handleGeniusPayWebhook(rawBody: string | Buffer, headers: Record<string, any>, payload: any) {
-    const signature = headers['x-webhook-signature'] ?? headers['X-Webhook-Signature'];
-    const timestamp = headers['x-webhook-timestamp'] ?? headers['X-Webhook-Timestamp'];
+  async handleGeniusPayWebhook(
+    rawBody: string | Buffer,
+    headers: Record<string, any>,
+    payload: any,
+  ) {
+    const signature =
+      headers['x-webhook-signature'] ?? headers['X-Webhook-Signature'];
+    const timestamp =
+      headers['x-webhook-timestamp'] ?? headers['X-Webhook-Timestamp'];
 
-    if (!this.geniusPayService.isWebhookTimestampFresh(String(timestamp ?? ''))) {
+    if (
+      !this.geniusPayService.isWebhookTimestampFresh(String(timestamp ?? ''))
+    ) {
       throw new BadRequestException('Timestamp webhook GeniusPay expiré');
     }
 
@@ -254,167 +339,218 @@ export class BoostPaymentsService {
     }
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        const existingEvent = await tx.webhookEvent.findUnique({
-          where: {
-            provider_eventId: {
+      const result = await this.prisma.$transaction(
+        async (tx): Promise<WebhookHandlingResult> => {
+          const existingEvent = await tx.webhookEvent.findUnique({
+            where: {
+              provider_eventId: {
+                provider: 'geniuspay',
+                eventId,
+              },
+            },
+          });
+
+          if (existingEvent) {
+            return { message: 'Webhook GeniusPay déjà traité', eventId };
+          }
+
+          await tx.webhookEvent.create({
+            data: {
               provider: 'geniuspay',
               eventId,
+              eventName: event ?? 'unknown',
+              payload: webhookPayload as Prisma.JsonObject,
             },
-          },
-        });
-
-        if (existingEvent) {
-          return { message: 'Webhook GeniusPay déjà traité', eventId };
-        }
-
-        await tx.webhookEvent.create({
-          data: {
-            provider: 'geniuspay',
-            eventId,
-            eventName: event ?? 'unknown',
-            payload: webhookPayload as Prisma.JsonObject,
-          },
-        });
-
-        if (!event?.startsWith('payment.')) {
-          return { message: 'Webhook GeniusPay ignoré', event, eventId };
-        }
-
-        const reference = data?.reference;
-
-        if (!reference) {
-          throw new BadRequestException('Référence de paiement manquante dans le webhook');
-        }
-
-        const targetStatus = this.mapWebhookEventToStatus(event);
-
-        if (!targetStatus) {
-          return { message: `Webhook GeniusPay ignoré: ${event}` };
-        }
-
-        const boostPayment = await tx.boostPayment.findUnique({
-          where: { reference },
-          include: {
-            post: { select: { id: true, boostedUntil: true } },
-          },
-        });
-
-        const metadata = (data?.metadata ?? {}) as Record<string, unknown>;
-
-        if (!boostPayment && targetStatus === BoostPaymentStatus.SUCCEEDED) {
-          const validatedMetadata = this.parseBoostMetadata(metadata, data.amount);
-
-          if (!validatedMetadata) {
-            return { message: 'Paiement GeniusPay reçu mais metadata incomplètes', reference };
-          }
-
-          const post = await tx.post.findUnique({
-            where: { id: validatedMetadata.postId },
-            select: { boostedUntil: true },
           });
 
-          if (!post) {
-            return { message: 'Paiement GeniusPay reçu mais annonce introuvable', reference };
+          if (!event?.startsWith('payment.')) {
+            return { message: 'Webhook GeniusPay ignoré', event, eventId };
           }
 
-          const user = await tx.user.findUnique({
-            where: { id: validatedMetadata.userId },
-            select: { id: true },
+          const reference = data?.reference;
+
+          if (!reference) {
+            throw new BadRequestException(
+              'Référence de paiement manquante dans le webhook',
+            );
+          }
+
+          const targetStatus = this.mapWebhookEventToStatus(event);
+
+          if (!targetStatus) {
+            return { message: `Webhook GeniusPay ignoré: ${event}` };
+          }
+
+          const boostPayment = await tx.boostPayment.findUnique({
+            where: { reference },
+            include: {
+              post: { select: { id: true, boostedUntil: true } },
+            },
           });
 
-          if (!user) {
-            return { message: 'Paiement GeniusPay reçu mais utilisateur introuvable', reference };
-          }
+          const metadata = data?.metadata ?? {};
 
-          const created = await tx.boostPayment.create({
-            data: {
-              reference,
-              checkoutUrl: data.checkout_url ?? data.payment_url ?? null,
-              amount: validatedMetadata.amount,
-              days: validatedMetadata.days,
-              status: BoostPaymentStatus.SUCCEEDED,
-              metadata: {
-                ...metadata,
+          if (!boostPayment && targetStatus === BoostPaymentStatus.SUCCEEDED) {
+            const validatedMetadata = this.parseBoostMetadata(
+              metadata,
+              data.amount,
+            );
+
+            if (!validatedMetadata) {
+              return {
+                message: 'Paiement GeniusPay reçu mais metadata incomplètes',
+                reference,
+              };
+            }
+
+            const post = await tx.post.findUnique({
+              where: { id: validatedMetadata.postId },
+              select: { boostedUntil: true },
+            });
+
+            if (!post) {
+              return {
+                message: 'Paiement GeniusPay reçu mais annonce introuvable',
+                reference,
+              };
+            }
+
+            const user = await tx.user.findUnique({
+              where: { id: validatedMetadata.userId },
+              select: { id: true },
+            });
+
+            if (!user) {
+              return {
+                message: 'Paiement GeniusPay reçu mais utilisateur introuvable',
+                reference,
+              };
+            }
+
+            const created = await tx.boostPayment.create({
+              data: {
+                reference,
+                checkoutUrl: data.checkout_url ?? data.payment_url ?? null,
+                amount: validatedMetadata.amount,
+                days: validatedMetadata.days,
+                status: BoostPaymentStatus.SUCCEEDED,
+                metadata: {
+                  ...metadata,
+                  postId: validatedMetadata.postId,
+                  userId: validatedMetadata.userId,
+                  days: validatedMetadata.days,
+                  amount: validatedMetadata.amount,
+                } as Prisma.JsonObject,
                 postId: validatedMetadata.postId,
                 userId: validatedMetadata.userId,
-                days: validatedMetadata.days,
-                amount: validatedMetadata.amount,
-              } as Prisma.JsonObject,
-              postId: validatedMetadata.postId,
-              userId: validatedMetadata.userId,
-              completedAt: new Date(),
-            },
-          });
+                completedAt: new Date(),
+              },
+            });
 
-          const boostedUntil = this.computeBoostedUntil(post.boostedUntil, created.days);
+            const boostedUntil = this.computeBoostedUntil(
+              post.boostedUntil,
+              created.days,
+            );
 
-          await tx.post.update({
-            where: { id: created.postId },
-            data: {
-              boostedUntil,
-              boostPaymentReference: reference,
-              boostPaymentAmount: created.amount,
-              boostPaidAt: new Date(),
-            },
-          });
+            await tx.post.update({
+              where: { id: created.postId },
+              data: {
+                boostedUntil,
+                boostPaymentReference: reference,
+                boostPaymentAmount: created.amount,
+                boostPaidAt: new Date(),
+              },
+            });
 
-          return { message: 'Boost activé via GeniusPay', reference };
-        }
+            return {
+              message: 'Boost activé via GeniusPay',
+              reference,
+              notify: {
+                userId: created.userId,
+                postId: created.postId,
+                reference,
+                status: BoostPaymentStatus.SUCCEEDED,
+                boostedUntil,
+              } satisfies BoostNotificationInfo,
+            };
+          }
 
-        if (!boostPayment) {
-          return { message: 'Paiement GeniusPay inconnu', reference };
-        }
+          if (!boostPayment) {
+            return { message: 'Paiement GeniusPay inconnu', reference };
+          }
 
-        if (!this.shouldApplyWebhookStatus(boostPayment.status, targetStatus)) {
-          return {
-            message: `Webhook GeniusPay ignoré: ${event}`,
-            reference,
-            status: boostPayment.status,
+          if (
+            !this.shouldApplyWebhookStatus(boostPayment.status, targetStatus)
+          ) {
+            return {
+              message: `Webhook GeniusPay ignoré: ${event}`,
+              reference,
+              status: boostPayment.status,
+            };
+          }
+
+          const updateData: Prisma.BoostPaymentUpdateInput = {
+            status: targetStatus,
           };
-        }
 
-        const updateData: Prisma.BoostPaymentUpdateInput = {
-          status: targetStatus,
-        };
+          let boostedUntil: Date | null = null;
 
-        if (targetStatus === BoostPaymentStatus.SUCCEEDED) {
-          const boostedUntil = this.computeBoostedUntil(
-            boostPayment.post.boostedUntil,
-            boostPayment.days,
-          );
+          if (targetStatus === BoostPaymentStatus.SUCCEEDED) {
+            boostedUntil = this.computeBoostedUntil(
+              boostPayment.post.boostedUntil,
+              boostPayment.days,
+            );
 
-          updateData.completedAt = new Date();
-          updateData.errorMessage = null;
+            updateData.completedAt = new Date();
+            updateData.errorMessage = null;
 
-          await tx.post.update({
-            where: { id: boostPayment.postId },
-            data: {
-              boostedUntil,
-              boostPaymentReference: reference,
-              boostPaymentAmount: boostPayment.amount,
-              boostPaidAt: new Date(),
-            },
+            await tx.post.update({
+              where: { id: boostPayment.postId },
+              data: {
+                boostedUntil,
+                boostPaymentReference: reference,
+                boostPaymentAmount: boostPayment.amount,
+                boostPaidAt: new Date(),
+              },
+            });
+          }
+
+          if (
+            targetStatus === BoostPaymentStatus.FAILED ||
+            targetStatus === BoostPaymentStatus.CANCELLED ||
+            targetStatus === BoostPaymentStatus.EXPIRED ||
+            targetStatus === BoostPaymentStatus.REFUNDED
+          ) {
+            updateData.failedAt = new Date();
+            updateData.errorMessage =
+              data?.failure_reason ?? data?.reason ?? null;
+          }
+
+          await tx.boostPayment.update({
+            where: { reference },
+            data: updateData,
           });
-        }
 
-        if (
-          targetStatus === BoostPaymentStatus.FAILED ||
-          targetStatus === BoostPaymentStatus.CANCELLED ||
-          targetStatus === BoostPaymentStatus.EXPIRED ||
-          targetStatus === BoostPaymentStatus.REFUNDED
-        ) {
-          updateData.failedAt = new Date();
-          updateData.errorMessage = data?.failure_reason ?? data?.reason ?? null;
-        }
+          return {
+            message: 'Webhook GeniusPay traité',
+            reference,
+            status: targetStatus,
+            notify: {
+              userId: boostPayment.userId,
+              postId: boostPayment.postId,
+              reference,
+              status: targetStatus,
+              boostedUntil,
+            } satisfies BoostNotificationInfo,
+          };
+        },
+      );
 
-        await tx.boostPayment.update({
-          where: { reference },
-          data: updateData,
-        });
+      if (result.notify) {
+        await this.notifyBoostOutcome(result.notify);
+      }
 
-        return { message: 'Webhook GeniusPay traité', reference, status: targetStatus };
-      });
+      return result;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -425,5 +561,43 @@ export class BoostPaymentsService {
 
       throw error;
     }
+  }
+
+  async getBoostPaymentStatus(reference: string, userId: string) {
+    const boostPayment = await this.prisma.boostPayment.findUnique({
+      where: { reference },
+      select: {
+        reference: true,
+        status: true,
+        amount: true,
+        days: true,
+        userId: true,
+        postId: true,
+        completedAt: true,
+        failedAt: true,
+        errorMessage: true,
+        createdAt: true,
+      },
+    });
+
+    if (!boostPayment) {
+      throw new NotFoundException('Paiement introuvable');
+    }
+
+    if (boostPayment.userId !== userId) {
+      throw new ForbiddenException('Accès refusé à ce paiement');
+    }
+
+    return {
+      reference: boostPayment.reference,
+      status: boostPayment.status,
+      amount: boostPayment.amount,
+      days: boostPayment.days,
+      postId: boostPayment.postId,
+      completedAt: boostPayment.completedAt,
+      failedAt: boostPayment.failedAt,
+      errorMessage: boostPayment.errorMessage,
+      createdAt: boostPayment.createdAt,
+    };
   }
 }
