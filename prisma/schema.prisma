@@ -67,6 +67,18 @@ enum BoostPaymentStatus {
   REFUNDED
 }
 
+enum VerificationDocumentType {
+  CNI
+  PERMIS
+  AUTRE
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum TechnicianSpecialty {
   COMPUTER_REPAIR
   PLUMBER
@@ -92,6 +104,7 @@ model User {
   resetPasswordToken     String?
   resetPasswordExpiresAt DateTime?
   autoApprovePosts       Boolean  @default(false)
+  isVerifiedSeller       Boolean  @default(false)
   city      String
   role      Role     @default(USER)
   createdAt DateTime @default(now())
@@ -106,7 +119,10 @@ model User {
   presence                   UserPresence?
   techniciansCreated         Technician[]             @relation("TechnicianCreatedBy")
   boostPayments              BoostPayment[]
+  verifications              SellerVerification[]     @relation("VerificationSubmittedBy")
+  reviewedVerifications      SellerVerification[]     @relation("VerificationReviewedBy")
 
+  @@index([isVerifiedSeller])
   @@map("users")
 }
 
@@ -293,6 +309,27 @@ model BoostPayment {
   @@index([userId])
   @@index([status])
   @@map("boost_payments")
+}
+
+model SellerVerification {
+  id                String                   @id @default(uuid())
+  userId            String
+  documentType      VerificationDocumentType
+  documentPublicId  String
+  documentFormat    String
+  status            VerificationStatus       @default(PENDING)
+  rejectionReason   String?
+  reviewedByAdminId String?
+  reviewedAt        DateTime?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  user            User  @relation("VerificationSubmittedBy", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedByAdmin User? @relation("VerificationReviewedBy", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@map("seller_verifications")
 }
 
 model WebhookEvent {

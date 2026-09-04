@@ -60,9 +60,7 @@ export class CloudinaryService {
     });
   }
 
-  async uploadMultipleImages(
-    files: Express.Multer.File[],
-  ): Promise<string[]> {
+  async uploadMultipleImages(files: Express.Multer.File[]): Promise<string[]> {
     if (!files || files.length === 0) {
       this.logger.warn('uploadMultipleImages: aucun fichier fourni');
       throw new BadRequestException('Aucun fichier fourni');
@@ -90,5 +88,56 @@ export class CloudinaryService {
 
   async deleteImage(publicId: string): Promise<void> {
     await cloudinary.uploader.destroy(publicId);
+  }
+
+  async uploadPrivateDocument(
+    file: Express.Multer.File,
+  ): Promise<{ publicId: string; format: string }> {
+    if (!file) {
+      this.logger.warn('uploadPrivateDocument: aucun fichier fourni');
+      throw new BadRequestException('Aucun fichier fourni');
+    }
+
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedMimes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Format de fichier non supporté. Utilisez JPEG, PNG ou WebP.',
+      );
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      throw new BadRequestException('Le fichier ne doit pas dépasser 8MB');
+    }
+
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'piece-rare/verifications',
+          resource_type: 'image',
+          type: 'authenticated',
+        },
+        (error, result) => {
+          if (error) {
+            this.logger.error(
+              `uploadPrivateDocument: erreur Cloudinary: ${error.message}`,
+              error,
+            );
+            return reject(error);
+          }
+
+          resolve({ publicId: result!.public_id, format: result!.format });
+        },
+      );
+
+      streamifier.createReadStream(file.buffer).pipe(uploadStream);
+    });
+  }
+
+  getSignedDocumentUrl(publicId: string, format: string): string {
+    return cloudinary.utils.private_download_url(publicId, format, {
+      resource_type: 'image',
+      type: 'authenticated',
+      expires_at: Math.floor(Date.now() / 1000) + 5 * 60,
+    });
   }
 }

@@ -29,7 +29,7 @@ export class CloudinaryController {
   constructor(private readonly cloudinaryService: CloudinaryService) {}
 
   @Post('images')
-  @ApiOperation({ summary: 'Upload d\'images (max 5)' })
+  @ApiOperation({ summary: "Upload d'images (max 5)" })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {

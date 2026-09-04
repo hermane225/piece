@@ -22,7 +22,9 @@ export class RecommendationsService {
       {} as Record<Category, number>,
     );
 
-    const entries = Object.entries(uniquePreferences) as Array<[Category, number]>;
+    const entries = Object.entries(uniquePreferences) as Array<
+      [Category, number]
+    >;
 
     await this.prisma.$transaction([
       this.prisma.userCategoryPreference.deleteMany({ where: { userId } }),
@@ -84,7 +86,10 @@ export class RecommendationsService {
     const categoryScores = new Map<Category, number>();
 
     for (const pref of preferences) {
-      categoryScores.set(pref.category, (categoryScores.get(pref.category) ?? 0) + pref.weight);
+      categoryScores.set(
+        pref.category,
+        (categoryScores.get(pref.category) ?? 0) + pref.weight,
+      );
     }
 
     for (const search of recentSearches) {
@@ -107,7 +112,6 @@ export class RecommendationsService {
 
     const where: Prisma.PostWhereInput = {
       userId: { not: userId },
-      isApproved: true,
       OR: [],
     };
 
@@ -132,11 +136,14 @@ export class RecommendationsService {
       where: noSignal
         ? {
             userId: { not: userId },
-            isApproved: true,
           }
         : where,
       take: limit,
-      orderBy: [{ boostedUntil: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [
+        { boostedUntil: 'desc' },
+        { user: { isVerifiedSeller: 'desc' } },
+        { createdAt: 'desc' },
+      ],
       include: {
         user: {
           select: {

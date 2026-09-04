@@ -5,33 +5,21 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePostDto, CategoryEnum, ConditionEnum } from './dto/create-post.dto';
+import {
+  CreatePostDto,
+  CategoryEnum,
+  ConditionEnum,
+} from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { FilterPostsDto } from './dto/filter-posts.dto';
-import { PayBoostDto } from './dto/pay-boost.dto';
 
 @Injectable()
 export class PostsService {
   constructor(private prisma: PrismaService) {}
 
-  private computeBoostedUntil(currentBoostedUntil: Date | null, days: number): Date {
-    const now = new Date();
-    if (currentBoostedUntil && currentBoostedUntil.getTime() > now.getTime()) {
-      return new Date(currentBoostedUntil.getTime() + days * 24 * 60 * 60 * 1000);
-    }
-    return new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
-  }
-
   private buildBaseWhere(filters: FilterPostsDto): Prisma.PostWhereInput {
-    const {
-      brand,
-      city,
-      category,
-      condition,
-      minPrice,
-      maxPrice,
-      search,
-    } = filters;
+    const { brand, city, category, condition, minPrice, maxPrice, search } =
+      filters;
 
     const where: Prisma.PostWhereInput = {};
 
@@ -56,69 +44,6 @@ export class PostsService {
     }
 
     return where;
-  }
-
-  async boostPost(id: string, userId: string, days: number) {
-    const post = await this.prisma.post.findUnique({
-      where: { id },
-      select: { userId: true, boostedUntil: true },
-    });
-
-    if (!post) {
-      throw new NotFoundException('Annonce non trouvée');
-    }
-
-    if (post.userId !== userId) {
-      throw new ForbiddenException('Vous ne pouvez booster que vos propres annonces');
-    }
-
-    const boostedUntil = this.computeBoostedUntil(post.boostedUntil, days);
-
-    await this.prisma.post.update({
-      where: { id },
-      data: { boostedUntil },
-    });
-
-    return {
-      message: `Annonce boostée jusqu'au ${boostedUntil.toLocaleDateString()}`,
-    };
-  }
-
-  async payAndBoost(id: string, userId: string, dto: PayBoostDto) {
-    const post = await this.prisma.post.findUnique({
-      where: { id },
-      select: { userId: true, boostedUntil: true },
-    });
-
-    if (!post) {
-      throw new NotFoundException('Annonce non trouvée');
-    }
-
-    if (post.userId !== userId) {
-      throw new ForbiddenException('Vous ne pouvez booster que vos propres annonces');
-    }
-
-    const days = dto.days ?? 7;
-    const boostedUntil = this.computeBoostedUntil(post.boostedUntil, days);
-
-    await this.prisma.post.update({
-      where: { id },
-      data: {
-        boostedUntil,
-        boostPaymentAmount: dto.amount,
-        boostPaymentReference: dto.paymentReference,
-        boostPaidAt: new Date(),
-      },
-    });
-
-    return {
-      message: `Paiement validé. Annonce boostée jusqu'au ${boostedUntil.toLocaleDateString()}`,
-      boostedUntil,
-      payment: {
-        amount: dto.amount,
-        reference: dto.paymentReference,
-      },
-    };
   }
 
   async create(userId: string, dto: CreatePostDto) {
@@ -164,32 +89,10 @@ export class PostsService {
   }
 
   async findAll(filters: FilterPostsDto) {
-    const {
-      page = 1,
-      limit = 10,
-    } = filters;
+    const { page = 1, limit = 10 } = filters;
     const skip = (page - 1) * limit;
     const now = new Date();
     const baseWhere = this.buildBaseWhere(filters);
-
-    const boostedWhere: Prisma.PostWhereInput = {
-      AND: [
-        baseWhere,
-        { boostedUntil: { gt: now } },
-      ],
-    };
-
-    const regularWhere: Prisma.PostWhereInput = {
-      AND: [
-        baseWhere,
-        {
-          OR: [
-            { boostedUntil: null },
-            { boostedUntil: { lte: now } },
-          ],
-        },
-      ],
-    };
 
     const includeUser = {
       user: {
@@ -202,45 +105,68 @@ export class PostsService {
       },
     };
 
-    const [boostedCount, regularCount] = await Promise.all([
-      this.prisma.post.count({ where: boostedWhere }),
-      this.prisma.post.count({ where: regularWhere }),
-    ]);
-
-    const total = boostedCount + regularCount;
-    let posts: any[] = [];
-
-    if (skip < boostedCount) {
-      const boostedPosts = await this.prisma.post.findMany({
-        where: boostedWhere,
-        skip,
-        take: limit,
+    // 3 paliers de tri, du plus prioritaire au moins prioritaire : boosté,
+    // puis vendeur vérifié, puis le reste. Un where dédié par palier (plutôt
+    // qu'un simple orderBy) évite qu'un boost expiré ne se classe devant les
+    // annonces standard.
+    const tiers: Array<{
+      where: Prisma.PostWhereInput;
+      orderBy: Prisma.PostOrderByWithRelationInput[];
+    }> = [
+      {
+        where: { AND: [baseWhere, { boostedUntil: { gt: now } }] },
         orderBy: [{ boostedUntil: 'desc' }, { createdAt: 'desc' }],
+      },
+      {
+        where: {
+          AND: [
+            baseWhere,
+            { OR: [{ boostedUntil: null }, { boostedUntil: { lte: now } }] },
+            { user: { isVerifiedSeller: true } },
+          ],
+        },
+        orderBy: [{ createdAt: 'desc' }],
+      },
+      {
+        where: {
+          AND: [
+            baseWhere,
+            { OR: [{ boostedUntil: null }, { boostedUntil: { lte: now } }] },
+            { user: { isVerifiedSeller: false } },
+          ],
+        },
+        orderBy: [{ createdAt: 'desc' }],
+      },
+    ];
+
+    const counts = await Promise.all(
+      tiers.map((tier) => this.prisma.post.count({ where: tier.where })),
+    );
+    const total = counts.reduce((sum, count) => sum + count, 0);
+
+    const posts: unknown[] = [];
+    let remainingSkip = skip;
+    let remainingTake = limit;
+
+    for (let i = 0; i < tiers.length && remainingTake > 0; i++) {
+      const tierCount = counts[i];
+
+      if (remainingSkip >= tierCount) {
+        remainingSkip -= tierCount;
+        continue;
+      }
+
+      const tierPosts = await this.prisma.post.findMany({
+        where: tiers[i].where,
+        orderBy: tiers[i].orderBy,
+        skip: remainingSkip,
+        take: remainingTake,
         include: includeUser,
       });
 
-      const remaining = limit - boostedPosts.length;
-      if (remaining > 0) {
-        const regularPosts = await this.prisma.post.findMany({
-          where: regularWhere,
-          skip: 0,
-          take: remaining,
-          orderBy: { createdAt: 'desc' },
-          include: includeUser,
-        });
-        posts = [...boostedPosts, ...regularPosts];
-      } else {
-        posts = boostedPosts;
-      }
-    } else {
-      const regularSkip = skip - boostedCount;
-      posts = await this.prisma.post.findMany({
-        where: regularWhere,
-        skip: regularSkip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: includeUser,
-      });
+      posts.push(...tierPosts);
+      remainingTake -= tierPosts.length;
+      remainingSkip = 0;
     }
 
     return {
@@ -286,7 +212,9 @@ export class PostsService {
     }
 
     if (post.userId !== userId) {
-      throw new ForbiddenException('Vous ne pouvez modifier que vos propres annonces');
+      throw new ForbiddenException(
+        'Vous ne pouvez modifier que vos propres annonces',
+      );
     }
 
     const updated = await this.prisma.post.update({
@@ -320,7 +248,9 @@ export class PostsService {
     }
 
     if (post.userId !== userId) {
-      throw new ForbiddenException('Vous ne pouvez supprimer que vos propres annonces');
+      throw new ForbiddenException(
+        'Vous ne pouvez supprimer que vos propres annonces',
+      );
     }
 
     await this.prisma.post.delete({ where: { id } });
