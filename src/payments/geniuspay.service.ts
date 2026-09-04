@@ -127,6 +127,8 @@ export class GeniusPayService {
           'X-API-Key': this.apiKey,
           'X-API-Secret': this.apiSecret,
           'Content-Type': 'application/json',
+          'User-Agent': 'piece-rare-backend/1.0',
+          Accept: 'application/json',
         },
         body: JSON.stringify(payload),
       });
