@@ -48,7 +48,11 @@ export class CloudinaryService {
               `uploadImage: erreur Cloudinary: ${error.message}`,
               error,
             );
-            return reject(error);
+            return reject(
+              new BadRequestException(
+                'Image invalide ou illisible. Réessayez avec un autre fichier.',
+              ),
+            );
           }
 
           this.logger.debug(`uploadImage: succès - ${result?.public_id}`);
@@ -122,7 +126,11 @@ export class CloudinaryService {
               `uploadPrivateDocument: erreur Cloudinary: ${error.message}`,
               error,
             );
-            return reject(error);
+            return reject(
+              new BadRequestException(
+                'Document invalide ou illisible. Réessayez avec un autre fichier.',
+              ),
+            );
           }
 
           resolve({ publicId: result!.public_id, format: result!.format });
