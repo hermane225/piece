@@ -2,10 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { FilterNotificationsDto } from './dto/filter-notifications.dto';
+import { NotificationsBusService } from './notifications-bus.service';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsBusService: NotificationsBusService,
+  ) {}
 
   async createNotification(params: {
     userId: string;
@@ -16,7 +20,7 @@ export class NotificationsService {
   }) {
     const { userId, type, title, body, data } = params;
 
-    return this.prisma.notification.create({
+    const notification = await this.prisma.notification.create({
       data: {
         userId,
         type,
@@ -25,6 +29,10 @@ export class NotificationsService {
         data,
       },
     });
+
+    await this.notificationsBusService.publish({ userId, notification });
+
+    return notification;
   }
 
   async createForManyUsers(params: {
@@ -37,17 +45,30 @@ export class NotificationsService {
     const uniqueUserIds = [...new Set(params.userIds)].filter(Boolean);
     if (!uniqueUserIds.length) return { count: 0 };
 
-    const result = await this.prisma.notification.createMany({
-      data: uniqueUserIds.map((userId) => ({
-        userId,
-        type: params.type,
-        title: params.title,
-        body: params.body,
-        data: params.data,
-      })),
-    });
+    const createdNotifications = await Promise.all(
+      uniqueUserIds.map((userId) =>
+        this.prisma.notification.create({
+          data: {
+            userId,
+            type: params.type,
+            title: params.title,
+            body: params.body,
+            data: params.data,
+          },
+        }),
+      ),
+    );
 
-    return { count: result.count };
+    await Promise.all(
+      createdNotifications.map((notification) =>
+        this.notificationsBusService.publish({
+          userId: notification.userId,
+          notification,
+        }),
+      ),
+    );
+
+    return { count: createdNotifications.length };
   }
 
   async getMyNotifications(userId: string, filters: FilterNotificationsDto) {

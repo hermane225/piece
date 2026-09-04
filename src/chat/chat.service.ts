@@ -4,9 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PaginationDto } from '../common/dto/pagination.dto';
 import { ChatPaginationDto } from './dto/chat-pagination.dto';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -19,13 +20,11 @@ export class ChatService {
   ) {}
 
   async createConversation(currentUserId: string, dto: CreateConversationDto) {
-    let postContext:
-      | {
-          id: string;
-          title: string;
-          userId: string;
-        }
-      | null = null;
+    let postContext: {
+      id: string;
+      title: string;
+      userId: string;
+    } | null = null;
 
     if (dto.postId) {
       postContext = await this.prisma.post.findUnique({
@@ -51,31 +50,35 @@ export class ChatService {
       );
     }
 
-    const allParticipantIds = [...new Set([currentUserId, ...participantCandidates])];
-    const otherParticipantIds = allParticipantIds.filter((id) => id !== currentUserId);
+    const allParticipantIds = [
+      ...new Set([currentUserId, ...participantCandidates]),
+    ];
+    const otherParticipantIds = allParticipantIds.filter(
+      (id) => id !== currentUserId,
+    );
 
     const usersCount = await this.prisma.user.count({
       where: { id: { in: allParticipantIds } },
     });
 
     if (usersCount !== allParticipantIds.length) {
-      throw new NotFoundException('Un ou plusieurs utilisateurs sont introuvables');
+      throw new NotFoundException(
+        'Un ou plusieurs utilisateurs sont introuvables',
+      );
     }
 
-    let conversation:
-      | {
-          id: string;
-          createdAt: Date;
-          updatedAt: Date;
-          participants: Array<{
-            id: string;
-            userId: string;
-            conversationId: string;
-            createdAt: Date;
-            user: { id: string; name: string; email: string; city: string };
-          }>;
-        }
-      | null = null;
+    let conversation: {
+      id: string;
+      createdAt: Date;
+      updatedAt: Date;
+      participants: Array<{
+        id: string;
+        userId: string;
+        conversationId: string;
+        createdAt: Date;
+        user: { id: string; name: string; email: string; city: string };
+      }>;
+    } | null = null;
 
     // Réutilise une conversation existante dans le cas direct (2 utilisateurs).
     if (otherParticipantIds.length === 1) {
@@ -169,40 +172,58 @@ export class ChatService {
     };
   }
 
-  async getMyConversations(userId: string) {
-    const conversations = await this.prisma.conversation.findMany({
-      where: {
-        participants: {
-          some: { userId },
-        },
+  async getMyConversations(userId: string, pagination: PaginationDto) {
+    const { page = 1, limit = 10 } = pagination;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ConversationWhereInput = {
+      participants: {
+        some: { userId },
       },
-      orderBy: { updatedAt: 'desc' },
-      include: {
-        participants: {
-          include: {
-            user: {
-              select: { id: true, name: true, email: true, city: true },
+    };
+
+    const [conversations, total] = await Promise.all([
+      this.prisma.conversation.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: { id: true, name: true, email: true, city: true },
+              },
+            },
+          },
+          messages: {
+            take: 1,
+            orderBy: { createdAt: 'desc' },
+            select: {
+              id: true,
+              content: true,
+              createdAt: true,
+              senderId: true,
             },
           },
         },
-        messages: {
-          take: 1,
-          orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            content: true,
-            createdAt: true,
-            senderId: true,
-          },
-        },
-      },
-    });
+      }),
+      this.prisma.conversation.count({ where }),
+    ]);
 
-    return conversations.map((conversation) => ({
-      ...conversation,
-      lastMessage: conversation.messages[0] ?? null,
-      messages: undefined,
-    }));
+    return {
+      data: conversations.map((conversation) => ({
+        ...conversation,
+        lastMessage: conversation.messages[0] ?? null,
+        messages: undefined,
+      })),
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async getConversationMessages(
@@ -246,7 +267,7 @@ export class ChatService {
     conversationId: string,
     dto: SendMessageDto,
   ) {
-    const participants = await this.ensureUserIsParticipant(conversationId, userId);
+    await this.ensureUserIsParticipant(conversationId, userId);
 
     const message = await this.prisma.chatMessage.create({
       data: {
@@ -261,9 +282,14 @@ export class ChatService {
       },
     });
 
-    const targetUserIds = participants
-      .map((participant) => participant.userId)
-      .filter((participantUserId) => participantUserId !== userId);
+    const otherParticipants =
+      await this.prisma.conversationParticipant.findMany({
+        where: { conversationId, userId: { not: userId } },
+        select: { userId: true },
+      });
+    const targetUserIds = otherParticipants.map(
+      (participant) => participant.userId,
+    );
 
     if (targetUserIds.length) {
       await this.notificationsService.createForManyUsers({
@@ -304,28 +330,28 @@ export class ChatService {
     };
   }
 
-  private async ensureUserIsParticipant(conversationId: string, userId: string) {
+  private async ensureUserIsParticipant(
+    conversationId: string,
+    userId: string,
+  ) {
+    const participant = await this.prisma.conversationParticipant.findUnique({
+      where: { conversationId_userId: { conversationId, userId } },
+      select: { id: true },
+    });
+
+    if (participant) {
+      return;
+    }
+
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
-      include: {
-        participants: {
-          select: { userId: true },
-        },
-      },
+      select: { id: true },
     });
 
     if (!conversation) {
       throw new NotFoundException('Conversation non trouvée');
     }
 
-    const isParticipant = conversation.participants.some(
-      (participant) => participant.userId === userId,
-    );
-
-    if (!isParticipant) {
-      throw new ForbiddenException('Accès interdit à cette conversation');
-    }
-
-    return conversation.participants;
+    throw new ForbiddenException('Accès interdit à cette conversation');
   }
 }

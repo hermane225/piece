@@ -17,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PaginationDto } from '../common/dto/pagination.dto';
 import { ChatService } from './chat.service';
 import { ChatPaginationDto } from './dto/chat-pagination.dto';
 import { CreateConversationDto } from './dto/create-conversation.dto';
@@ -30,7 +31,10 @@ export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
   @Post('conversations')
-  @ApiOperation({ summary: 'Créer (ou retrouver) une conversation et envoyer un message initial optionnel' })
+  @ApiOperation({
+    summary:
+      'Créer (ou retrouver) une conversation et envoyer un message initial optionnel',
+  })
   @ApiResponse({ status: 201, description: 'Conversation créée' })
   createConversation(
     @CurrentUser('id') userId: string,
@@ -41,8 +45,11 @@ export class ChatController {
 
   @Get('conversations')
   @ApiOperation({ summary: 'Lister mes conversations' })
-  getMyConversations(@CurrentUser('id') userId: string) {
-    return this.chatService.getMyConversations(userId);
+  getMyConversations(
+    @CurrentUser('id') userId: string,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.chatService.getMyConversations(userId, pagination);
   }
 
   @Get('conversations/:id/messages')
@@ -53,7 +60,11 @@ export class ChatController {
     @Param('id') conversationId: string,
     @Query() pagination: ChatPaginationDto,
   ) {
-    return this.chatService.getConversationMessages(userId, conversationId, pagination);
+    return this.chatService.getConversationMessages(
+      userId,
+      conversationId,
+      pagination,
+    );
   }
 
   @Post('conversations/:id/messages')
