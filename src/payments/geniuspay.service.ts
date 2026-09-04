@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'crypto';
 
@@ -41,10 +42,20 @@ export type GeniusPayWebhookPayload = {
 
 @Injectable()
 export class GeniusPayService {
+  private readonly logger = new Logger(GeniusPayService.name);
+
   private readonly baseUrl =
     process.env.GENIUSPAY_BASE_URL ?? 'https://geniuspay.ci/api/v1/merchant';
 
   private readonly mode = this.resolveMode();
+
+  constructor() {
+    if (!this.apiKey || !this.apiSecret) {
+      this.logger.warn(
+        `Clés GeniusPay manquantes pour le mode "${this.mode}" (GENIUSPAY_API_KEY_${this.mode.toUpperCase()} / GENIUSPAY_API_SECRET_${this.mode.toUpperCase()}). Les paiements échoueront tant qu'elles ne sont pas configurées.`,
+      );
+    }
+  }
 
   private resolveMode() {
     return process.env.GENIUSPAY_MODE?.toLowerCase() === 'sandbox'
@@ -107,19 +118,46 @@ export class GeniusPayService {
       payload.error_url = input.errorUrl;
     }
 
-    const response = await fetch(`${this.baseUrl}/payments`, {
-      method: 'POST',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'X-API-Secret': this.apiSecret,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    let response: Response;
 
-    const result = await response.json();
+    try {
+      response = await fetch(`${this.baseUrl}/payments`, {
+        method: 'POST',
+        headers: {
+          'X-API-Key': this.apiKey,
+          'X-API-Secret': this.apiSecret,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Échec de connexion à GeniusPay (${this.baseUrl}/payments): ${message}`,
+      );
+      throw new InternalServerErrorException(
+        'Impossible de joindre GeniusPay. Réessayez dans quelques instants.',
+      );
+    }
+
+    const rawBody = await response.text();
+    let result: any;
+
+    try {
+      result = rawBody ? JSON.parse(rawBody) : null;
+    } catch {
+      this.logger.error(
+        `Réponse GeniusPay non-JSON (statut ${response.status}): ${rawBody.slice(0, 500)}`,
+      );
+      throw new InternalServerErrorException(
+        'Réponse invalide de GeniusPay',
+      );
+    }
 
     if (!response.ok || !result?.success || !result?.data) {
+      this.logger.error(
+        `Paiement GeniusPay refusé (statut ${response.status}): ${rawBody.slice(0, 500)}`,
+      );
       const message =
         result?.error?.message ?? 'Impossible de créer le paiement GeniusPay';
       throw new BadRequestException(message);
