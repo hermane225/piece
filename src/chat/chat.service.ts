@@ -79,6 +79,7 @@ export class ChatService {
         createdAt: Date;
         user: { id: string; name: string; email: string; city: string };
       }>;
+      post: { id: string; title: string } | null;
     } | null = null;
 
     // Un fil de discussion distinct par annonce, même avec le même
@@ -112,6 +113,7 @@ export class ChatService {
               },
             },
           },
+          post: { select: { id: true, title: true } },
         },
       });
     }
@@ -132,6 +134,7 @@ export class ChatService {
               },
             },
           },
+          post: { select: { id: true, title: true } },
         },
       });
     }
@@ -202,6 +205,7 @@ export class ChatService {
               },
             },
           },
+          post: { select: { id: true, title: true } },
           messages: {
             take: 1,
             orderBy: { createdAt: 'desc' },
