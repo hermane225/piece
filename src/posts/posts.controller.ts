@@ -30,6 +30,8 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { BoostPaymentsService } from '../payments/boost-payments.service';
+import { OrdersService } from '../orders/orders.service';
+import { MarkSoldDto } from '../orders/dto/mark-sold.dto';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -38,6 +40,7 @@ export class PostsController {
     private readonly postsService: PostsService,
     private readonly cloudinaryService: CloudinaryService,
     private readonly boostPaymentsService: BoostPaymentsService,
+    private readonly ordersService: OrdersService,
   ) {}
 
   @Post()
@@ -156,5 +159,23 @@ export class PostsController {
     @Body() dto: PayBoostDto,
   ) {
     return this.boostPaymentsService.createBoostCheckout(id, userId, dto);
+  }
+
+  @Patch(':id/mark-sold')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Marquer une annonce comme vendue à un acheteur (propriétaire uniquement)',
+  })
+  @ApiParam({ name: 'id', description: "ID de l'annonce" })
+  @ApiResponse({ status: 200, description: 'Annonce marquée comme vendue' })
+  @ApiResponse({ status: 403, description: 'Accès refusé' })
+  markSold(
+    @Param('id') id: string,
+    @CurrentUser('id') sellerId: string,
+    @Body() dto: MarkSoldDto,
+  ) {
+    return this.ordersService.createFromMarkSold(id, sellerId, dto);
   }
 }

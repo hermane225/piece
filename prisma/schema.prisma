@@ -58,6 +58,17 @@ enum NotificationType {
   SYSTEM
 }
 
+enum PostStatus {
+  ACTIVE
+  SOLD
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
 enum BoostPaymentStatus {
   PENDING
   SUCCEEDED
@@ -105,6 +116,8 @@ model User {
   resetPasswordExpiresAt DateTime?
   autoApprovePosts       Boolean  @default(false)
   isVerifiedSeller       Boolean  @default(false)
+  ratingSum              Float    @default(0)
+  reviewsCount           Int      @default(0)
   city      String
   role      Role     @default(USER)
   createdAt DateTime @default(now())
@@ -121,6 +134,10 @@ model User {
   boostPayments              BoostPayment[]
   verifications              SellerVerification[]     @relation("VerificationSubmittedBy")
   reviewedVerifications      SellerVerification[]     @relation("VerificationReviewedBy")
+  ordersAsSeller             Order[]                  @relation("OrderSeller")
+  ordersAsBuyer              Order[]                  @relation("OrderBuyer")
+  reviewsWritten             Review[]                 @relation("ReviewAuthor")
+  reviewsReceived            Review[]                 @relation("ReviewTarget")
 
   @@index([isVerifiedSeller])
   @@map("users")
@@ -142,6 +159,7 @@ model Post {
   boostPaymentReference String?
   boostPaymentAmount    Float?
   boostPaidAt           DateTime?
+  status      PostStatus @default(ACTIVE)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -149,7 +167,9 @@ model Post {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   boostPayments BoostPayment[]
+  orders        Order[]
 
+  @@index([status])
   @@map("posts")
 }
 
@@ -330,6 +350,49 @@ model SellerVerification {
   @@index([userId])
   @@index([status])
   @@map("seller_verifications")
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  postId      String?
+  postTitle   String
+  sellerId    String
+  buyerId     String
+  price       Float
+  status      OrderStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+
+  post    Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
+  seller  User     @relation("OrderSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  buyer   User     @relation("OrderBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  reviews Review[]
+
+  @@index([postId])
+  @@index([sellerId])
+  @@index([buyerId])
+  @@index([status])
+  @@map("orders")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  orderId   String
+  authorId  String
+  targetId  String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  author User  @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  target User  @relation("ReviewTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, authorId])
+  @@index([targetId])
+  @@map("reviews")
 }
 
 model WebhookEvent {

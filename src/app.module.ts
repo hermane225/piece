@@ -17,6 +17,8 @@ import { PresenceModule } from './presence/presence.module';
 import { TechniciansModule } from './technicians/technicians.module';
 import { PaymentsModule } from './payments/payments.module';
 import { VerificationModule } from './verification/verification.module';
+import { OrdersModule } from './orders/orders.module';
+import { ReviewsModule } from './reviews/reviews.module';
 
 @Module({
   imports: [
@@ -51,6 +53,8 @@ import { VerificationModule } from './verification/verification.module';
     TechniciansModule,
     PaymentsModule,
     VerificationModule,
+    OrdersModule,
+    ReviewsModule,
   ],
   providers: [
     {

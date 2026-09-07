@@ -3,9 +3,10 @@ import { PostsService } from './posts.service';
 import { PostsController } from './posts.controller';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { OrdersModule } from '../orders/orders.module';
 
 @Module({
-  imports: [CloudinaryModule, PaymentsModule],
+  imports: [CloudinaryModule, PaymentsModule, OrdersModule],
   controllers: [PostsController],
   providers: [PostsService],
   exports: [PostsService],

@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Injectable,
   NotFoundException,
   ConflictException,
@@ -93,6 +94,12 @@ export class AdminService {
 
     if (!post) {
       throw new NotFoundException('Annonce non trouvée');
+    }
+
+    if (post.status === 'SOLD') {
+      throw new ForbiddenException(
+        'Impossible de supprimer une annonce vendue',
+      );
     }
 
     await this.prisma.post.delete({ where: { id } });

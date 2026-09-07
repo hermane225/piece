@@ -21,7 +21,7 @@ export class PostsService {
     const { brand, city, category, condition, minPrice, maxPrice, search } =
       filters;
 
-    const where: Prisma.PostWhereInput = {};
+    const where: Prisma.PostWhereInput = { status: 'ACTIVE' };
 
     if (brand) where.brand = { contains: brand, mode: 'insensitive' };
     if (city) where.city = { contains: city, mode: 'insensitive' };
@@ -254,6 +254,12 @@ export class PostsService {
     if (post.userId !== userId) {
       throw new ForbiddenException(
         'Vous ne pouvez supprimer que vos propres annonces',
+      );
+    }
+
+    if (post.status === 'SOLD') {
+      throw new ForbiddenException(
+        'Impossible de supprimer une annonce vendue',
       );
     }
 
