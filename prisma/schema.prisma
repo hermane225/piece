@@ -168,6 +168,7 @@ model Post {
 
   boostPayments BoostPayment[]
   orders        Order[]
+  conversations Conversation[]
 
   @@index([status])
   @@map("posts")
@@ -187,11 +188,14 @@ model Banner {
 
 model Conversation {
   id           String                    @id @default(uuid())
+  postId       String?
   createdAt    DateTime                  @default(now())
   updatedAt    DateTime                  @updatedAt
   participants ConversationParticipant[]
   messages     ChatMessage[]
+  post         Post?                     @relation(fields: [postId], references: [id], onDelete: SetNull)
 
+  @@index([postId])
   @@map("conversations")
 }
 

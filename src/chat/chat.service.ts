@@ -69,6 +69,7 @@ export class ChatService {
 
     let conversation: {
       id: string;
+      postId: string | null;
       createdAt: Date;
       updatedAt: Date;
       participants: Array<{
@@ -80,11 +81,15 @@ export class ChatService {
       }>;
     } | null = null;
 
-    // Réutilise une conversation existante dans le cas direct (2 utilisateurs).
+    // Un fil de discussion distinct par annonce, même avec le même
+    // interlocuteur : on ne réutilise une conversation existante que si elle
+    // porte sur la même annonce (postId === dto.postId, y compris "aucune
+    // annonce" pour les conversations génériques).
     if (otherParticipantIds.length === 1) {
       const targetUserId = otherParticipantIds[0];
       conversation = await this.prisma.conversation.findFirst({
         where: {
+          postId: dto.postId ?? null,
           AND: [
             { participants: { some: { userId: currentUserId } } },
             { participants: { some: { userId: targetUserId } } },
@@ -114,6 +119,7 @@ export class ChatService {
     if (!conversation) {
       conversation = await this.prisma.conversation.create({
         data: {
+          postId: dto.postId ?? null,
           participants: {
             create: allParticipantIds.map((userId) => ({ userId })),
           },
@@ -280,6 +286,13 @@ export class ChatService {
           select: { id: true, name: true, email: true, city: true },
         },
       },
+    });
+
+    // Fait remonter la conversation en tête de liste (triée par
+    // updatedAt desc) dès qu'un nouveau message y est envoyé.
+    await this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { updatedAt: new Date() },
     });
 
     const otherParticipants =
