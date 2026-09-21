@@ -5,6 +5,7 @@ import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
 import { NotificationsBusService } from './notifications-bus.service';
 import { NotificationsGateway } from './notifications.gateway';
+import { ExpoPushService } from './expo-push.service';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { NotificationsGateway } from './notifications.gateway';
     NotificationsService,
     NotificationsBusService,
     NotificationsGateway,
+    ExpoPushService,
   ],
   exports: [NotificationsService],
 })

@@ -90,6 +90,31 @@ enum VerificationStatus {
   REJECTED
 }
 
+enum ReportTargetType {
+  USER
+  MESSAGE
+  POST
+}
+
+enum ReportReason {
+  SCAM
+  HARASSMENT
+  INAPPROPRIATE_CONTENT
+  SPAM
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  REJECTED
+}
+
+enum PushPlatform {
+  IOS
+  ANDROID
+}
+
 enum TechnicianSpecialty {
   COMPUTER_REPAIR
   PLUMBER
@@ -116,6 +141,7 @@ model User {
   resetPasswordExpiresAt DateTime?
   autoApprovePosts       Boolean  @default(false)
   isVerifiedSeller       Boolean  @default(false)
+  deletedAt              DateTime?
   ratingSum              Float    @default(0)
   reviewsCount           Int      @default(0)
   city      String
@@ -138,6 +164,11 @@ model User {
   ordersAsBuyer              Order[]                  @relation("OrderBuyer")
   reviewsWritten             Review[]                 @relation("ReviewAuthor")
   reviewsReceived            Review[]                 @relation("ReviewTarget")
+  blocksMade                 Block[]                  @relation("BlockBlocker")
+  blocksReceived             Block[]                  @relation("BlockBlocked")
+  reportsFiled               Report[]                 @relation("ReportReporter")
+  reportsReviewed            Report[]                 @relation("ReportReviewer")
+  pushTokens                 PushToken[]
 
   @@index([isVerifiedSeller])
   @@map("users")
@@ -397,6 +428,59 @@ model Review {
   @@unique([orderId, authorId])
   @@index([targetId])
   @@map("reviews")
+}
+
+model Block {
+  id        String   @id @default(uuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("BlockBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlockBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+  @@map("blocks")
+}
+
+// targetId est volontairement sans clé étrangère (polymorphe selon targetType) :
+// un signalement doit survivre à la suppression du contenu signalé.
+model Report {
+  id                String       @id @default(uuid())
+  reporterId        String
+  targetType        ReportTargetType
+  targetId          String
+  reason            ReportReason
+  details           String?
+  status            ReportStatus @default(PENDING)
+  adminNote         String?
+  reviewedByAdminId String?
+  reviewedAt        DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  reporter        User  @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reviewedByAdmin User? @relation("ReportReviewer", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+  @@map("reports")
+}
+
+model PushToken {
+  id        String       @id @default(uuid())
+  userId    String
+  token     String       @unique
+  platform  PushPlatform
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_tokens")
 }
 
 model WebhookEvent {

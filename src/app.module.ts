@@ -19,6 +19,8 @@ import { PaymentsModule } from './payments/payments.module';
 import { VerificationModule } from './verification/verification.module';
 import { OrdersModule } from './orders/orders.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { BlocksModule } from './blocks/blocks.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -55,6 +57,8 @@ import { ReviewsModule } from './reviews/reviews.module';
     VerificationModule,
     OrdersModule,
     ReviewsModule,
+    BlocksModule,
+    ReportsModule,
   ],
   providers: [
     {

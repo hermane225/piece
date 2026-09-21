@@ -63,7 +63,8 @@ async function bootstrap() {
     .addTag('Upload', "Upload d'images via Cloudinary")
     .addTag('Chat', 'Messagerie entre utilisateurs')
     .addTag('Presence', 'Présence temps réel chat (online/last seen)')
-    .addTag('Notifications', 'Alertes utilisateur')
+    .addTag('Notifications', 'Alertes utilisateur et tokens push Expo')
+    .addTag('Reports', 'Signalements utilisateurs / messages / annonces')
     .addTag('Recommendations', 'Suggestions personnalisées')
     .addTag('Payments', 'Paiements GeniusPay et webhooks')
     .build();

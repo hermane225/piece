@@ -140,10 +140,10 @@ export class PresenceGateway
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true },
+      select: { id: true, deletedAt: true },
     });
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new WsException('Utilisateur non trouvé');
     }
 

@@ -141,6 +141,13 @@ export class CloudinaryService {
     });
   }
 
+  async deletePrivateDocument(publicId: string): Promise<void> {
+    await cloudinary.uploader.destroy(publicId, {
+      resource_type: 'image',
+      type: 'authenticated',
+    });
+  }
+
   getSignedDocumentUrl(publicId: string, format: string): string {
     return cloudinary.utils.private_download_url(publicId, format, {
       resource_type: 'image',

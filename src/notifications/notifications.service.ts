@@ -3,12 +3,14 @@ import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { FilterNotificationsDto } from './dto/filter-notifications.dto';
 import { NotificationsBusService } from './notifications-bus.service';
+import { ExpoPushService } from './expo-push.service';
 
 @Injectable()
 export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsBusService: NotificationsBusService,
+    private readonly expoPushService: ExpoPushService,
   ) {}
 
   async createNotification(params: {
@@ -31,6 +33,11 @@ export class NotificationsService {
     });
 
     await this.notificationsBusService.publish({ userId, notification });
+    void this.expoPushService.sendToUsers([userId], {
+      title,
+      body,
+      data: this.pushData(notification.id, type, data),
+    });
 
     return notification;
   }
@@ -68,7 +75,27 @@ export class NotificationsService {
       ),
     );
 
+    void Promise.all(
+      createdNotifications.map((notification) =>
+        this.expoPushService.sendToUsers([notification.userId], {
+          title: params.title,
+          body: params.body,
+          data: this.pushData(notification.id, params.type, params.data),
+        }),
+      ),
+    );
+
     return { count: createdNotifications.length };
+  }
+
+  private pushData(
+    notificationId: string,
+    type: NotificationType,
+    data?: Prisma.InputJsonValue,
+  ): Prisma.InputJsonValue {
+    const extra =
+      data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+    return { ...extra, notificationId, type };
   }
 
   async getMyNotifications(userId: string, filters: FilterNotificationsDto) {

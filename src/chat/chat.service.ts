@@ -7,6 +7,8 @@ import {
 import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { BlocksService } from '../blocks/blocks.service';
+import { ChatBusService } from './chat-bus.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { ChatPaginationDto } from './dto/chat-pagination.dto';
 import { CreateConversationDto } from './dto/create-conversation.dto';
@@ -17,6 +19,8 @@ export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly blocksService: BlocksService,
+    private readonly chatBusService: ChatBusService,
   ) {}
 
   async createConversation(currentUserId: string, dto: CreateConversationDto) {
@@ -57,15 +61,19 @@ export class ChatService {
       (id) => id !== currentUserId,
     );
 
-    const usersCount = await this.prisma.user.count({
+    const users = await this.prisma.user.findMany({
       where: { id: { in: allParticipantIds } },
+      select: { id: true, deletedAt: true },
     });
 
-    if (usersCount !== allParticipantIds.length) {
+    if (users.length !== allParticipantIds.length) {
       throw new NotFoundException(
         'Un ou plusieurs utilisateurs sont introuvables',
       );
     }
+
+    this.assertRecipientsActive(users, currentUserId);
+    await this.blocksService.assertNoBlock(currentUserId, otherParticipantIds);
 
     let conversation: {
       id: string;
@@ -221,12 +229,34 @@ export class ChatService {
       this.prisma.conversation.count({ where }),
     ]);
 
+    const otherUserIds = [
+      ...new Set(
+        conversations.flatMap((conversation) =>
+          conversation.participants
+            .map((participant) => participant.userId)
+            .filter((id) => id !== userId),
+        ),
+      ),
+    ];
+    const blockStates = await this.blocksService.getBlockStates(
+      userId,
+      otherUserIds,
+    );
+
     return {
-      data: conversations.map((conversation) => ({
-        ...conversation,
-        lastMessage: conversation.messages[0] ?? null,
-        messages: undefined,
-      })),
+      data: conversations.map((conversation) => {
+        const others = conversation.participants
+          .map((participant) => blockStates.get(participant.userId))
+          .filter((state) => state !== undefined);
+
+        return {
+          ...conversation,
+          lastMessage: conversation.messages[0] ?? null,
+          messages: undefined,
+          blockedByMe: others.some((state) => state.blockedByMe),
+          blockedMe: others.some((state) => state.blockedMe),
+        };
+      }),
       meta: {
         total,
         page,
@@ -279,6 +309,19 @@ export class ChatService {
   ) {
     await this.ensureUserIsParticipant(conversationId, userId);
 
+    const otherParticipants =
+      await this.prisma.conversationParticipant.findMany({
+        where: { conversationId, userId: { not: userId } },
+        select: { user: { select: { id: true, deletedAt: true } } },
+      });
+    const targetUserIds = otherParticipants.map(({ user }) => user.id);
+
+    this.assertRecipientsActive(
+      otherParticipants.map(({ user }) => user),
+      userId,
+    );
+    await this.blocksService.assertNoBlock(userId, targetUserIds);
+
     const message = await this.prisma.chatMessage.create({
       data: {
         conversationId,
@@ -299,16 +342,13 @@ export class ChatService {
       data: { updatedAt: new Date() },
     });
 
-    const otherParticipants =
-      await this.prisma.conversationParticipant.findMany({
-        where: { conversationId, userId: { not: userId } },
-        select: { userId: true },
-      });
-    const targetUserIds = otherParticipants.map(
-      (participant) => participant.userId,
-    );
-
     if (targetUserIds.length) {
+      await this.chatBusService.publish({
+        userIds: targetUserIds,
+        event: 'message:new',
+        payload: { conversationId, message },
+      });
+
       await this.notificationsService.createForManyUsers({
         userIds: targetUserIds,
         type: NotificationType.CHAT_MESSAGE,
@@ -332,19 +372,53 @@ export class ChatService {
   async markMessagesAsRead(userId: string, conversationId: string) {
     await this.ensureUserIsParticipant(conversationId, userId);
 
-    const result = await this.prisma.chatMessage.updateMany({
+    const unread = await this.prisma.chatMessage.findMany({
       where: {
         conversationId,
         senderId: { not: userId },
         readAt: null,
       },
-      data: { readAt: new Date() },
+      select: { id: true },
     });
+    const messageIds = unread.map((message) => message.id);
+    const readAt = new Date();
+
+    const result = await this.prisma.chatMessage.updateMany({
+      where: { id: { in: messageIds }, readAt: null },
+      data: { readAt },
+    });
+
+    if (result.count > 0) {
+      const others = await this.prisma.conversationParticipant.findMany({
+        where: { conversationId, userId: { not: userId } },
+        select: { userId: true },
+      });
+
+      await this.chatBusService.publish({
+        userIds: others.map((participant) => participant.userId),
+        event: 'message:read',
+        payload: {
+          conversationId,
+          readerId: userId,
+          readAt: readAt.toISOString(),
+          messageIds,
+        },
+      });
+    }
 
     return {
       message: 'Messages marqués comme lus',
       updatedCount: result.count,
     };
+  }
+
+  private assertRecipientsActive(
+    users: Array<{ id: string; deletedAt: Date | null }>,
+    currentUserId: string,
+  ) {
+    if (users.some((user) => user.id !== currentUserId && user.deletedAt)) {
+      throw new ForbiddenException('Ce compte a été supprimé');
+    }
   }
 
   private async ensureUserIsParticipant(

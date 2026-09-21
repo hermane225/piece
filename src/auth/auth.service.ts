@@ -8,13 +8,14 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { MailService } from './mail.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +26,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private mailService: MailService,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   private isProduction(): boolean {
@@ -204,6 +206,78 @@ export class AuthService {
     });
 
     return { message: 'Mot de passe réinitialisé avec succès' };
+  }
+
+  /**
+   * Suppression de compte (exigence Apple/Google).
+   * La ligne `users` est conservée mais anonymisée pour ne pas casser les
+   * commandes, avis et conversations des autres utilisateurs ; tout le reste
+   * de ses données personnelles (annonces, documents, tokens...) est supprimé.
+   */
+  async deleteAccount(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, deletedAt: true },
+    });
+    if (!user || user.deletedAt) {
+      throw new UnauthorizedException('Utilisateur non trouvé');
+    }
+
+    const verifications = await this.prisma.sellerVerification.findMany({
+      where: { userId },
+      select: { documentPublicId: true },
+    });
+
+    // Mot de passe aléatoire : le compte ne peut plus se connecter.
+    const unusablePassword = await bcrypt.hash(
+      randomBytes(32).toString('hex'),
+      10,
+    );
+
+    await this.prisma.$transaction([
+      this.prisma.post.deleteMany({ where: { userId } }),
+      this.prisma.sellerVerification.deleteMany({ where: { userId } }),
+      this.prisma.pushToken.deleteMany({ where: { userId } }),
+      this.prisma.notification.deleteMany({ where: { userId } }),
+      this.prisma.userCategoryPreference.deleteMany({ where: { userId } }),
+      this.prisma.userSearchActivity.deleteMany({ where: { userId } }),
+      this.prisma.userPresence.deleteMany({ where: { userId } }),
+      this.prisma.block.deleteMany({
+        where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          name: 'Utilisateur supprimé',
+          email: `deleted-${userId}@deleted.invalid`,
+          phone: `deleted-${userId}`,
+          city: '',
+          password: unusablePassword,
+          resetPasswordToken: null,
+          resetPasswordExpiresAt: null,
+          autoApprovePosts: false,
+          isVerifiedSeller: false,
+          deletedAt: new Date(),
+        },
+      }),
+    ]);
+
+    // Pièces d'identité : suppression Cloudinary hors transaction, best effort.
+    await Promise.allSettled(
+      verifications.map((v) =>
+        this.cloudinaryService.deletePrivateDocument(v.documentPublicId),
+      ),
+    ).then((results) =>
+      results.forEach((result) => {
+        if (result.status === 'rejected') {
+          this.logger.warn(
+            `Suppression document Cloudinary échouée (compte ${userId}): ${String(result.reason)}`,
+          );
+        }
+      }),
+    );
+
+    return { message: 'Compte supprimé' };
   }
 
   private generateToken(userId: string, email: string): string {

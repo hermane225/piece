@@ -1,6 +1,9 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  Post,
   Patch,
   Param,
   Query,
@@ -17,13 +20,21 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { FilterNotificationsDto } from './dto/filter-notifications.dto';
 import { NotificationsService } from './notifications.service';
+import { ExpoPushService } from './expo-push.service';
+import {
+  RegisterPushTokenDto,
+  UnregisterPushTokenDto,
+} from './dto/push-token.dto';
 
 @ApiTags('Notifications')
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly expoPushService: ExpoPushService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Lister mes notifications' })
@@ -43,6 +54,28 @@ export class NotificationsController {
   })
   getUnreadCount(@CurrentUser('id') userId: string) {
     return this.notificationsService.getUnreadCount(userId);
+  }
+
+  @Post('push-token')
+  @ApiOperation({
+    summary: 'Enregistrer le token Expo Push de cet appareil',
+  })
+  registerPushToken(
+    @CurrentUser('id') userId: string,
+    @Body() dto: RegisterPushTokenDto,
+  ) {
+    return this.expoPushService.registerToken(userId, dto);
+  }
+
+  @Delete('push-token')
+  @ApiOperation({
+    summary: 'Supprimer le token Expo Push (à appeler à la déconnexion)',
+  })
+  unregisterPushToken(
+    @CurrentUser('id') userId: string,
+    @Body() dto: UnregisterPushTokenDto,
+  ) {
+    return this.expoPushService.unregisterToken(userId, dto);
   }
 
   @Patch(':id/read')

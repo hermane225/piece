@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -57,5 +57,17 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Non autorisé' })
   getMe(@CurrentUser('id') userId: string) {
     return this.authService.getMe(userId);
+  }
+
+  @Delete('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Supprimer mon compte (données personnelles anonymisées)',
+  })
+  @ApiResponse({ status: 200, description: 'Compte supprimé' })
+  @ApiResponse({ status: 401, description: 'Non autorisé' })
+  deleteMe(@CurrentUser('id') userId: string) {
+    return this.authService.deleteAccount(userId);
   }
 }

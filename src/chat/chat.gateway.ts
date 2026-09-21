@@ -1,6 +1,5 @@
 import {
   OnGatewayConnection,
-  OnGatewayDisconnect,
   OnGatewayInit,
   WebSocketGateway,
   WebSocketServer,
@@ -10,96 +9,78 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  NotificationsBusService,
-  NotificationPushPayload,
-} from './notifications-bus.service';
+import { ChatBusService, ChatEvent } from './chat-bus.service';
 
 type JwtPayload = {
   sub: string;
   email: string;
 };
 
+/**
+ * Canal temps réel de la messagerie (namespace `/chat`).
+ * Serveur -> client uniquement : l'envoi et la lecture passent toujours par
+ * l'API REST, le socket ne fait que pousser :
+ *  - `message:new  { conversationId, message }`
+ *  - `message:read { conversationId, readerId, readAt, messageIds }`
+ */
 @Injectable()
 @WebSocketGateway({
-  namespace: '/notifications',
+  namespace: '/chat',
   cors: {
     origin: true,
     credentials: true,
   },
 })
-export class NotificationsGateway
-  implements
-    OnGatewayInit,
-    OnGatewayConnection,
-    OnGatewayDisconnect,
-    OnModuleDestroy
+export class ChatGateway
+  implements OnGatewayInit, OnGatewayConnection, OnModuleDestroy
 {
   @WebSocketServer()
   private server!: Server;
 
-  private readonly logger = new Logger(NotificationsGateway.name);
-  private readonly socketIdsByUserId = new Map<string, Set<string>>();
-  private unsubscribeNotificationsBus: (() => void) | null = null;
+  private readonly logger = new Logger(ChatGateway.name);
+  private unsubscribeChatBus: (() => void) | null = null;
 
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
-    private readonly notificationsBusService: NotificationsBusService,
+    private readonly chatBusService: ChatBusService,
   ) {}
 
   afterInit() {
-    this.unsubscribeNotificationsBus = this.notificationsBusService.onUpdate(
-      (update) => {
-        this.pushToUser(update);
-      },
+    this.unsubscribeChatBus = this.chatBusService.onUpdate((event) =>
+      this.pushEvent(event),
     );
   }
 
   onModuleDestroy() {
-    this.unsubscribeNotificationsBus?.();
-    this.unsubscribeNotificationsBus = null;
+    this.unsubscribeChatBus?.();
+    this.unsubscribeChatBus = null;
   }
 
   async handleConnection(client: Socket) {
     try {
       const userId = await this.authenticateSocket(client);
       client.data.userId = userId;
-      this.addSocketForUser(userId, client.id);
+      await client.join(this.roomFor(userId));
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : 'Connexion socket non autorisée';
-      this.logger.warn(
-        `Connexion notifications rejetée (${client.id}): ${message}`,
-      );
+      this.logger.warn(`Connexion chat rejetée (${client.id}): ${message}`);
       client.disconnect(true);
     }
   }
 
-  handleDisconnect(client: Socket) {
-    const userId = client.data.userId as string | undefined;
-    if (userId) {
-      this.removeSocketForUser(userId, client.id);
+  private pushEvent({ userIds, event, payload }: ChatEvent) {
+    for (const userId of userIds) {
+      this.server.to(this.roomFor(userId)).emit(event, payload);
     }
   }
 
-  private pushToUser(update: NotificationPushPayload) {
-    const socketIds = this.socketIdsByUserId.get(update.userId);
-    if (!socketIds?.size) {
-      return;
-    }
-
-    for (const socketId of socketIds) {
-      const socket = this.server.sockets.sockets.get(socketId);
-      if (!socket) {
-        continue;
-      }
-
-      socket.emit('notification:new', update.notification);
-    }
+  private roomFor(userId: string) {
+    return `user:${userId}`;
   }
 
   private async authenticateSocket(client: Socket): Promise<string> {
@@ -111,7 +92,7 @@ export class NotificationsGateway
 
     const token = this.extractToken(authHeader, authToken);
     if (!token) {
-      throw new Error('JWT manquant pour la connexion notifications');
+      throw new Error('JWT manquant pour la connexion chat');
     }
 
     const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
@@ -150,23 +131,5 @@ export class NotificationsGateway
     }
 
     return null;
-  }
-
-  private addSocketForUser(userId: string, socketId: string) {
-    const socketIds = this.socketIdsByUserId.get(userId) ?? new Set<string>();
-    socketIds.add(socketId);
-    this.socketIdsByUserId.set(userId, socketIds);
-  }
-
-  private removeSocketForUser(userId: string, socketId: string) {
-    const socketIds = this.socketIdsByUserId.get(userId);
-    if (!socketIds) {
-      return;
-    }
-
-    socketIds.delete(socketId);
-    if (!socketIds.size) {
-      this.socketIdsByUserId.delete(userId);
-    }
   }
 }

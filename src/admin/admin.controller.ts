@@ -23,6 +23,10 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CreateTechnicianDto } from './dto/create-technician.dto';
+import { ReportsService } from '../reports/reports.service';
+import { FilterReportsDto } from '../reports/dto/filter-reports.dto';
+import { UpdateReportDto } from '../reports/dto/update-report.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('Admin')
 @Controller('admin')
@@ -30,7 +34,10 @@ import { CreateTechnicianDto } from './dto/create-technician.dto';
 @Roles('ADMIN')
 @ApiBearerAuth()
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly reportsService: ReportsService,
+  ) {}
 
   @Get('stats')
   @ApiOperation({ summary: 'Statistiques de la plateforme' })
@@ -75,6 +82,25 @@ export class AdminController {
   @ApiResponse({ status: 200, description: 'Utilisateur supprimé' })
   deleteUser(@Param('id') id: string) {
     return this.adminService.deleteUser(id);
+  }
+
+  @Get('reports')
+  @ApiOperation({ summary: 'Lister les signalements (filtrables par statut)' })
+  @ApiResponse({ status: 200, description: 'Signalements paginés' })
+  getReports(@Query() filters: FilterReportsDto) {
+    return this.reportsService.findAll(filters);
+  }
+
+  @Patch('reports/:id')
+  @ApiOperation({ summary: "Changer le statut d'un signalement" })
+  @ApiParam({ name: 'id', description: 'ID du signalement' })
+  @ApiResponse({ status: 200, description: 'Signalement mis à jour' })
+  updateReport(
+    @Param('id') id: string,
+    @CurrentUser('id') adminId: string,
+    @Body() dto: UpdateReportDto,
+  ) {
+    return this.reportsService.updateStatus(id, adminId, dto);
   }
 
   // Technician Management Endpoints
