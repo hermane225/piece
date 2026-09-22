@@ -164,6 +164,7 @@ model User {
   ordersAsBuyer              Order[]                  @relation("OrderBuyer")
   reviewsWritten             Review[]                 @relation("ReviewAuthor")
   reviewsReceived            Review[]                 @relation("ReviewTarget")
+  technicianReviewsWritten   TechnicianReview[]       @relation("TechnicianReviewAuthor")
   blocksMade                 Block[]                  @relation("BlockBlocker")
   blocksReceived             Block[]                  @relation("BlockBlocked")
   reportsFiled               Report[]                 @relation("ReportReporter")
@@ -326,6 +327,7 @@ model Technician {
   certifications    String?
   yearsOfExperience Int?
   hourlyRate        Float?
+  photoUrl          String?
   availability      String?                // JSON string pour les horaires
   status            Boolean                @default(true) // true = actif, false = inactif
   createdByAdminId  String
@@ -333,12 +335,31 @@ model Technician {
   updatedAt         DateTime               @updatedAt
 
   createdByAdmin    User                   @relation("TechnicianCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  reviews           TechnicianReview[]
 
   @@index([specialty])
   @@index([city])
   @@index([status])
   @@index([createdByAdminId])
   @@map("technicians")
+}
+
+// Avis laissé par un utilisateur connecté sur la fiche d'un technicien.
+// Un seul avis par (technicien, auteur).
+model TechnicianReview {
+  id           String     @id @default(uuid())
+  technicianId String
+  authorId     String
+  rating       Int
+  comment      String?
+  createdAt    DateTime   @default(now())
+
+  technician Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  author     User       @relation("TechnicianReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([technicianId, authorId])
+  @@index([technicianId])
+  @@map("technician_reviews")
 }
 
 model BoostPayment {

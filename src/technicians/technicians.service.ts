@@ -62,6 +62,7 @@ export class TechniciansService {
           certifications: true,
           yearsOfExperience: true,
           hourlyRate: true,
+          photoUrl: true,
           availability: true,
           createdAt: true,
         },

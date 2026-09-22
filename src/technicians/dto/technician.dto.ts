@@ -57,6 +57,12 @@ export class TechnicianDto {
   hourlyRate?: number;
 
   @ApiProperty({
+    example: 'https://res.cloudinary.com/demo/image/upload/technician.jpg',
+    required: false,
+  })
+  photoUrl?: string;
+
+  @ApiProperty({
     example: JSON.stringify({
       monday: '08:00-18:00',
       tuesday: '08:00-18:00',

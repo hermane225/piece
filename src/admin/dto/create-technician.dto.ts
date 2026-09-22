@@ -8,6 +8,7 @@ import {
   IsBoolean,
   Min,
   Max,
+  MaxLength,
   Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -94,6 +95,15 @@ export class CreateTechnicianDto {
   @IsOptional()
   @IsString()
   availability?: string;
+
+  @ApiPropertyOptional({
+    example: 'https://res.cloudinary.com/demo/image/upload/technician.jpg',
+    description: 'URL de la photo (obtenue via POST /upload/images)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  photoUrl?: string;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()

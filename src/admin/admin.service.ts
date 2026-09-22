@@ -198,6 +198,7 @@ export class AdminService {
         certifications: dto.certifications,
         yearsOfExperience: dto.yearsOfExperience,
         hourlyRate: dto.hourlyRate,
+        photoUrl: dto.photoUrl,
         availability: dto.availability,
         status: dto.status ?? true,
         createdByAdminId: adminId,
@@ -309,6 +310,7 @@ export class AdminService {
         yearsOfExperience:
           dto.yearsOfExperience ?? technician.yearsOfExperience,
         hourlyRate: dto.hourlyRate ?? technician.hourlyRate,
+        photoUrl: dto.photoUrl ?? technician.photoUrl,
         availability: dto.availability ?? technician.availability,
         status: dto.status ?? technician.status,
       },
